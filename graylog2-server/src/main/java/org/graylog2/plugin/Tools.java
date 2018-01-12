@@ -16,10 +16,14 @@
  */
 package org.graylog2.plugin;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.io.BaseEncoding;
 import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Doubles;
+import org.graylog2.plugin.indexer.searches.timeranges.AbsoluteRange;
 import org.graylog2.shared.SuppressForbidden;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -36,6 +40,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.net.Inet4Address;
+import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -43,11 +48,13 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedSet;
 import java.util.UUID;
 import java.util.zip.GZIPInputStream;
@@ -60,12 +67,15 @@ import static com.google.common.base.Strings.isNullOrEmpty;
  * Utility class for various tool/helper functions.
  */
 public final class Tools {
+    private static final byte[] EMPTY_BYTE_ARRAY_4 = {0,0,0,0};
+    private static final byte[] EMPTY_BYTE_ARRAY_16 = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
 
     public static final String ES_DATE_FORMAT = "yyyy-MM-dd HH:mm:ss.SSS";
     public static final String ES_DATE_FORMAT_NO_MS = "yyyy-MM-dd HH:mm:ss";
 
     public static final DateTimeFormatter ES_DATE_FORMAT_FORMATTER = DateTimeFormat.forPattern(Tools.ES_DATE_FORMAT).withZoneUTC();
     public static final DateTimeFormatter ISO_DATE_FORMAT_FORMATTER = ISODateTimeFormat.dateTime().withZoneUTC();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private Tools() {
     }
@@ -443,14 +453,14 @@ public final class Tools {
     }
 
     /**
-     * Try to get the primary {@link java.net.InetAddress} of the primary network interface with
+     * Try to get the primary {@link InetAddress} of the primary network interface with
      * fallback to the local loopback address (usually {@code 127.0.0.1} or {@code ::1}.
      *
-     * @return The primary {@link java.net.InetAddress} of the primary network interface
+     * @return The primary {@link InetAddress} of the primary network interface
      * or the loopback address as fallback.
      * @throws SocketException if the list of network interfaces couldn't be retrieved
      */
-    public static InetAddress guessPrimaryNetworkAddress() throws SocketException {
+    public static InetAddress guessPrimaryNetworkAddress(boolean preferIPv4) throws SocketException {
         final Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
 
         if (interfaces != null) {
@@ -458,7 +468,10 @@ public final class Tools {
                 if (!interf.isLoopback() && interf.isUp()) {
                     // Interface is not loopback and up. Try to get the first address.
                     for (InetAddress addr : Collections.list(interf.getInetAddresses())) {
-                        if (addr instanceof Inet4Address) {
+                        if (preferIPv4 && addr instanceof Inet4Address) {
+                            return addr;
+                        }
+                        if (!preferIPv4 && addr instanceof Inet6Address) {
                             return addr;
                         }
                     }
@@ -467,6 +480,10 @@ public final class Tools {
         }
 
         return InetAddress.getLoopbackAddress();
+    }
+
+    public static boolean isWildcardInetAddress(@Nullable InetAddress inetAddress) {
+        return inetAddress != null && (Arrays.equals(EMPTY_BYTE_ARRAY_4, inetAddress.getAddress()) || Arrays.equals(EMPTY_BYTE_ARRAY_16, inetAddress.getAddress()));
     }
 
     @Nullable
@@ -572,15 +589,16 @@ public final class Tools {
 
     @Nullable
     public static URI normalizeURI(@Nullable final URI uri, String scheme, int port, String path) {
-        return com.google.common.base.Optional.fromNullable(uri)
-                .transform(u -> getUriWithScheme(u, scheme))
-                .transform(u -> getUriWithPort(u, port))
-                .transform(u -> getUriWithDefaultPath(u, path))
-                .transform(Tools::uriWithTrailingSlash)
-                .transform(URI::normalize)
-                .orNull();
+        return Optional.ofNullable(uri)
+                .map(u -> getUriWithScheme(u, scheme))
+                .map(u -> getUriWithPort(u, port))
+                .map(u -> getUriWithDefaultPath(u, path))
+                .map(Tools::uriWithTrailingSlash)
+                .map(URI::normalize)
+                .orElse(null);
     }
 
+    @Nullable
     public static <T, E> T getKeyByValue(Map<T, E> map, E value) {
         for (Map.Entry<T, E> entry : map.entrySet()) {
             if (value.equals(entry.getValue())) {
@@ -619,6 +637,20 @@ public final class Tools {
         @Override
         public void uncaughtException(Thread t, Throwable e) {
             log.error("Thread {} failed by not catching exception: {}.", t.getName(), e);
+        }
+    }
+
+    public static Optional<AbsoluteRange> extractHistogramBoundaries(final String query) {
+        try {
+            final JsonParser jp = OBJECT_MAPPER.getFactory().createParser(query);
+            final JsonNode rootNode = OBJECT_MAPPER.readTree(jp);
+            final JsonNode timestampNode = rootNode.findValue("range").findValue("timestamp");
+            final String from = elasticSearchTimeFormatToISO8601(timestampNode.findValue("from").asText());
+            final String to = elasticSearchTimeFormatToISO8601(timestampNode.findValue("to").asText());
+
+            return Optional.of(AbsoluteRange.create(from, to));
+        } catch (Exception ignored) {
+            return Optional.empty();
         }
     }
 }

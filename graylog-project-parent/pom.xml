@@ -20,7 +20,6 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <modules>
-        <module>../auto-value-javabean</module>
         <module>../graylog2-server</module>
         <module>../integration-tests</module>
     </modules>
@@ -28,7 +27,7 @@
     <parent>
         <groupId>org.graylog</groupId>
         <artifactId>graylog-parent</artifactId>
-        <version>2.4.0-SNAPSHOT</version>
+        <version>3.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>graylog-project-parent</artifactId>
@@ -119,12 +118,6 @@
             </dependency>
 
             <dependency>
-                <groupId>net.java.dev.jna</groupId>
-                <artifactId>jna</artifactId>
-                <version>${jna.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>org.kie</groupId>
                 <artifactId>kie-api</artifactId>
                 <version>${drools.version}</version>
@@ -164,6 +157,11 @@
             <dependency>
                 <groupId>io.dropwizard.metrics</groupId>
                 <artifactId>metrics-jvm</artifactId>
+                <version>${metrics.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.dropwizard.metrics</groupId>
+                <artifactId>metrics-jmx</artifactId>
                 <version>${metrics.version}</version>
             </dependency>
             <dependency>
@@ -392,9 +390,16 @@
             </dependency>
 
             <dependency>
-                <groupId>com.google.code.findbugs</groupId>
-                <artifactId>jsr305</artifactId>
-                <version>${jsr305.version}</version>
+                <groupId>net.jcip</groupId>
+                <artifactId>jcip-annotations</artifactId>
+                <version>${jcip-annotations.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-annotations</artifactId>
+                <version>${spotbugs-annotations.version}</version>
+                <scope>provided</scope>
             </dependency>
 
             <dependency>
@@ -425,14 +430,9 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>com.gabrielittner.auto.value</groupId>
-                <artifactId>auto-value-extension-util</artifactId>
-                <version>${auto-value-extension-util.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.graylog.autovalue</groupId>
                 <artifactId>auto-value-javabean</artifactId>
-                <version>${project.version}</version>
+                <version>${auto-value-javabean.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
@@ -480,11 +480,6 @@
                 <groupId>javax.validation</groupId>
                 <artifactId>validation-api</artifactId>
                 <version>${validation-api.version}</version>
-            </dependency>
-            <dependency>
-                <groupId>com.squareup</groupId>
-                <artifactId>javapoet</artifactId>
-                <version>${javapoet.version}</version>
             </dependency>
 
             <!-- Test dependencies -->
@@ -545,7 +540,7 @@
             <dependency>
                 <groupId>com.github.joschi.nosqlunit</groupId>
                 <artifactId>nosqlunit-elasticsearch-http</artifactId>
-                <version>1.0.0-4+jackson</version>
+                <version>${nosqlunit-elasticsearch-http.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
@@ -659,7 +654,9 @@
                         <bundledSignature>jdk-unsafe</bundledSignature>
                         <bundledSignature>jdk-deprecated</bundledSignature>
                         <bundledSignature>jdk-reflection</bundledSignature>
-                        <bundledSignature>commons-io-unsafe-${commons-io.version}</bundledSignature>
+                        <!-- Required until https://github.com/policeman-tools/forbidden-apis/pull/133 has been merged -->
+                        <bundledSignature>commons-io-unsafe-2.5</bundledSignature>
+                        <!--bundledSignature>commons-io-unsafe-${commons-io.version}</bundledSignature-->
                     </bundledSignatures>
                     <signaturesFiles>
                         <signaturesFile>${project.basedir}/../config/forbidden-apis/signatures.txt</signaturesFile>
@@ -729,10 +726,10 @@
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>findbugs-maven-plugin</artifactId>
+                        <groupId>com.github.spotbugs</groupId>
+                        <artifactId>spotbugs-maven-plugin</artifactId>
                         <configuration>
-                            <excludeFilterFile>config/findbugs-exclude.xml</excludeFilterFile>
+                            <excludeFilterFile>config/spotbugs-exclude.xml</excludeFilterFile>
                             <effort>Max</effort>
                             <threshold>Default</threshold>
                             <failOnError>false</failOnError>
@@ -741,12 +738,12 @@
                                 <plugin>
                                     <groupId>com.h3xstream.findsecbugs</groupId>
                                     <artifactId>findsecbugs-plugin</artifactId>
-                                    <version>1.5.0</version>
+                                    <version>1.7.1</version>
                                 </plugin>
                                 <plugin>
                                     <groupId>com.mebigfatguy.fb-contrib</groupId>
                                     <artifactId>fb-contrib</artifactId>
-                                    <version>6.8.3</version>
+                                    <version>7.0.5.sb</version>
                                 </plugin>
                             </plugins>
                         </configuration>

@@ -1,9 +1,10 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
-import { Button, Col, Row } from 'react-bootstrap';
+import { Button, ButtonToolbar, Col, Row } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import Routes from 'routing/Routes';
+import history from 'util/History';
 import { DocumentTitle, PageHeader, Spinner } from 'components/common';
 
 import { DataAdapter, DataAdapterCreate, DataAdapterForm, DataAdaptersOverview } from 'components/lookup-tables';
@@ -16,10 +17,9 @@ const { LookupTablesStore, LookupTablesActions } = CombinedProvider.get('LookupT
 
 const LUTDataAdaptersPage = React.createClass({
   propTypes: {
-// eslint-disable-next-line react/no-unused-prop-types
+    // eslint-disable-next-line react/no-unused-prop-types
     params: PropTypes.object.isRequired,
     route: PropTypes.object.isRequired,
-    history: PropTypes.object.isRequired,
   },
 
   mixins: [
@@ -79,7 +79,7 @@ const LUTDataAdaptersPage = React.createClass({
   _saved() {
     // reset detail state
     this.setState({ dataAdapter: undefined });
-    this.props.history.pushState(null, Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW);
+    history.push(Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW);
   },
 
   _isCreating(props) {
@@ -119,8 +119,7 @@ const LUTDataAdaptersPage = React.createClass({
       if (!this.state.types) {
         content = <Spinner text="Loading data adapter types" />;
       } else {
-        content = (<DataAdapterCreate history={this.props.history}
-                                      types={this.state.types}
+        content = (<DataAdapterCreate types={this.state.types}
                                       saved={this._saved}
                                       validate={this._validateAdapter}
                                       validationErrors={this.state.validationErrors} />);
@@ -139,27 +138,17 @@ const LUTDataAdaptersPage = React.createClass({
             <span>Data adapters provide the actual values for lookup tables</span>
             {null}
             <span>
-              {isShowing && (
-                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.edit(this.props.params.adapterName)}
-                               onlyActiveOnIndex>
-                  <Button bsStyle="success">Edit</Button>
+              <ButtonToolbar>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.OVERVIEW}>
+                  <Button bsStyle="info">Lookup Tables</Button>
                 </LinkContainer>
-              )}
-              &nbsp;
-              {(isShowing || isEditing) && (
-                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW}
-                               onlyActiveOnIndex>
-                  <Button bsStyle="info">Data Adapters</Button>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW}>
+                  <Button bsStyle="info">Caches</Button>
                 </LinkContainer>
-              )}
-              &nbsp;
-              <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.OVERVIEW} onlyActiveOnIndex>
-                <Button bsStyle="info">Lookup Tables</Button>
-              </LinkContainer>
-              &nbsp;
-              <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW} onlyActiveOnIndex>
-                <Button bsStyle="info">Caches</Button>
-              </LinkContainer>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW}>
+                  <Button bsStyle="info" className="active">Data Adapters</Button>
+                </LinkContainer>
+              </ButtonToolbar>
             </span>
           </PageHeader>
 

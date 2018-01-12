@@ -59,11 +59,11 @@ const LookupTable = React.createClass({
     return (
       <Row className="content">
         <Col md={6}>
-          <h3>
+          <h2>
             {this.props.table.title}
             <ContentPackMarker contentPack={this.props.table.content_pack} marginLeft={5} />
-          </h3>
-          <span>{this.props.table.description}</span>
+          </h2>
+          <p>{this.props.table.description}</p>
           <dl>
             <dt>Data adapter</dt>
             <dd>
@@ -72,6 +72,9 @@ const LookupTable = React.createClass({
             <dt>Cache</dt>
             <dd><LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.show(this.props.cache.name)}><a>{this.props.cache.title}</a></LinkContainer></dd>
           </dl>
+          <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.edit(this.props.table.name)}>
+            <Button bsStyle="success">Edit</Button>
+          </LinkContainer>
           {
             (this.props.table.default_single_value || this.props.table.default_multi_value) &&
             <dl>
@@ -81,7 +84,8 @@ const LookupTable = React.createClass({
               <dd><code>{this.props.table.default_multi_value}</code>{' '}({this.props.table.default_multi_value_type.toLowerCase()})</dd>
             </dl>
           }
-          <h3>Purge Cache</h3>
+          <hr />
+          <h2>Purge Cache</h2>
           <p>You can purge the complete cache for this lookup table or only the cache entry for a single key.</p>
           <form onSubmit={this._onPurgeKey}>
             <fieldset>
@@ -93,17 +97,15 @@ const LookupTable = React.createClass({
                      help="Key to purge from cache"
                      required
                      value={this.state.purgeKey} />
-              <Input>
-                <ButtonToolbar>
-                  <Button type="submit" bsStyle="success">Purge key</Button>
-                  <Button type="button" bsStyle="info" onClick={this._onPurgeAll}>Purge all</Button>
-                </ButtonToolbar>
-              </Input>
+              <ButtonToolbar>
+                <Button type="submit" bsStyle="success">Purge key</Button>
+                <Button type="button" bsStyle="info" onClick={this._onPurgeAll}>Purge all</Button>
+              </ButtonToolbar>
             </fieldset>
           </form>
         </Col>
         <Col md={6}>
-          <h3>Test lookup</h3>
+          <h2>Test lookup</h2>
           <p>You can manually query the lookup table using this form. The data will be cached as configured by Graylog.</p>
           <form onSubmit={this._lookupKey}>
             <fieldset>
@@ -115,11 +117,7 @@ const LookupTable = React.createClass({
                      onChange={this._onChange}
                      help="Key to look up a value for."
                      value={this.state.lookupKey} />
-            </fieldset>
-            <fieldset>
-              <Input>
-                <Button type="submit" bsStyle="success">Look up</Button>
-              </Input>
+              <Button type="submit" bsStyle="success">Look up</Button>
             </fieldset>
           </form>
           { this.state.lookupResult && (

@@ -5,15 +5,18 @@ import { Row, Col, Button, Alert } from 'react-bootstrap';
 import { PluginStore } from 'graylog-web-plugin/plugin';
 import deepEqual from 'deep-equal';
 
+import CombinedProvider from 'injection/CombinedProvider';
 import StoreProvider from 'injection/StoreProvider';
+
 const StreamsStore = StoreProvider.getStore('Streams');
 const CurrentUserStore = StoreProvider.getStore('CurrentUser');
-const DashboardsStore = StoreProvider.getStore('Dashboards');
+const { DashboardsActions, DashboardsStore } = CombinedProvider.get('Dashboards');
 const FocusStore = StoreProvider.getStore('Focus');
 const WidgetsStore = StoreProvider.getStore('Widgets');
 
 import DocsHelper from 'util/DocsHelper';
 import UserNotification from 'util/UserNotification';
+import history from 'util/History';
 import Routes from 'routing/Routes';
 
 import { DocumentTitle, ReactGridContainer, PageHeader, Spinner, IfPermitted } from 'components/common';
@@ -26,7 +29,6 @@ import style from './ShowDashboardPage.css';
 
 const ShowDashboardPage = React.createClass({
   propTypes: {
-    history: PropTypes.object.isRequired,
     params: PropTypes.object.isRequired,
   },
   mixins: [Reflux.connect(CurrentUserStore), Reflux.connect(FocusStore), PermissionsMixin],
@@ -79,7 +81,7 @@ const ShowDashboardPage = React.createClass({
       }, (response) => {
         if (response.additional && response.additional.status === 404) {
           UserNotification.error(`Unable to find a dashboard with the id <${dashboardId}>. Maybe it was deleted in the meantime.`);
-          this.props.history.pushState(null, Routes.DASHBOARDS);
+          history.push(Routes.DASHBOARDS);
         }
       });
   },
@@ -177,7 +179,7 @@ const ShowDashboardPage = React.createClass({
     this.setState({ locked: !this.state.locked });
   },
   _onPositionsChange(newPositions) {
-    DashboardsStore.updatePositions(this.state.dashboard, newPositions);
+    DashboardsActions.updatePositions(this.state.dashboard, newPositions);
   },
   _toggleFullscreen() {
     const element = document.documentElement;

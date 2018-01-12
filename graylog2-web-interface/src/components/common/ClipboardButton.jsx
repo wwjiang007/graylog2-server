@@ -1,24 +1,42 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import ReactDOM from 'react-dom';
 import { Button, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import Clipboard from 'clipboard';
 
+/**
+ * Component that renders a button to copy some text in the clipboard when pressed.
+ * The text to be copied can be given in the `text` prop, or in an external element through a CSS selector in the `target` prop.
+ */
 const ClipboardButton = React.createClass({
   propTypes: {
+    /** Text or element used in the button. */
     title: PropTypes.oneOfType([PropTypes.node, PropTypes.string]).isRequired,
+    /** Action to perform. */
     action: PropTypes.oneOf(['copy', 'cut']),
-    text: PropTypes.string, // text to copy to clipboard
-    target: PropTypes.string, // css selector for the target element
+    /** Text to be copied in the clipboard. This overrides the `target` prop. */
+    text: PropTypes.string,
+    /** CSS selector to an element containing the text to be copied to the clipboard. This will only be used if `text` is not provided. */
+    target: PropTypes.string,
+    /** Function to call if text was successfully copied to clipboard. */
     onSuccess: PropTypes.func,
+    /** Button's class name. */
     className: PropTypes.string,
+    /** Button's style. */
     style: PropTypes.object,
+    /** Button's bsStyle. */
     bsStyle: PropTypes.string,
+    /** Button's bsSize. */
     bsSize: PropTypes.string,
+    /** Specifies if the button is disabled or not. */
+    disabled: PropTypes.bool,
+    /** Text to display when hovering over the button. */
+    buttonTitle: PropTypes.string,
   },
   getDefaultProps() {
     return {
       action: 'copy',
+      disabled: false,
+      buttonTitle: undefined,
     };
   },
   getInitialState() {
@@ -47,15 +65,17 @@ const ClipboardButton = React.createClass({
   },
   _onError(event) {
     const key = event.action === 'cut' ? 'K' : 'C';
-    this.setState({ tooltipMessage: `Press Ctrl+${key} to ${event.action}` });
+    this.setState({ tooltipMessage: <span>Press Ctrl+{key}&thinsp;/&thinsp;&#8984;{key} to {event.action}</span> });
   },
   _getFilteredProps() {
-    const { className, style, bsStyle, bsSize } = this.props;
+    const { className, style, bsStyle, bsSize, disabled, buttonTitle } = this.props;
     return {
       className: className,
       style: style,
       bsStyle: bsStyle,
       bsSize: bsSize,
+      disabled: disabled,
+      title: buttonTitle,
     };
   },
   render() {

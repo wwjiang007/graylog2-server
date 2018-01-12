@@ -30,6 +30,7 @@ public class RestPermissions implements PluginPermissions {
      * These should all be in the form of "group:action", because {@link Permissions#allPermissionsMap()} below depends on it.
      * Should this ever change, you need to adapt the code below, too.
      */
+    public static final String AUTHENTICATION_READ = "authentication:read";
     public static final String AUTHENTICATION_EDIT = "authentication:edit";
     public static final String BLACKLISTENTRY_CREATE = "blacklistentry:create";
     public static final String BLACKLISTENTRY_DELETE = "blacklistentry:delete";
@@ -66,6 +67,7 @@ public class RestPermissions implements PluginPermissions {
     public static final String INDICES_DELETE = "indices:delete";
     public static final String INDICES_FAILURES = "indices:failures";
     public static final String INDICES_READ = "indices:read";
+    public static final String INPUTS_CHANGESTATE = "inputs:changestate";
     public static final String INPUTS_CREATE = "inputs:create";
     public static final String INPUTS_EDIT = "inputs:edit";
     public static final String INPUTS_READ = "inputs:read";
@@ -171,6 +173,7 @@ public class RestPermissions implements PluginPermissions {
         .add(create(INDICES_DELETE, ""))
         .add(create(INDICES_FAILURES, ""))
         .add(create(INDICES_READ, ""))
+        .add(create(INPUTS_CHANGESTATE, ""))
         .add(create(INPUTS_CREATE, ""))
         .add(create(INPUTS_EDIT, ""))
         .add(create(INPUTS_READ, ""))

@@ -1,16 +1,21 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import { ButtonGroup, DropdownButton, MenuItem } from 'react-bootstrap';
+import Reflux from 'reflux';
+import { ButtonGroup, ButtonToolbar, DropdownButton, MenuItem } from 'react-bootstrap';
 import Immutable from 'immutable';
 
+import CombinedProvider from 'injection/CombinedProvider';
 import StoreProvider from 'injection/StoreProvider';
+
 const SearchStore = StoreProvider.getStore('Search');
-const DashboardsStore = StoreProvider.getStore('Dashboards');
+const { DashboardsActions, DashboardsStore } = CombinedProvider.get('Dashboards');
 const WidgetsStore = StoreProvider.getStore('Widgets');
 
 import PermissionsMixin from 'util/PermissionsMixin';
 import { WidgetCreationModal } from 'components/widgets';
 import { EditDashboardModal } from 'components/dashboard';
+
+import style from './AddToDashboardMenu.css';
 
 const AddToDashboardMenu = React.createClass({
   propTypes: {
@@ -22,52 +27,34 @@ const AddToDashboardMenu = React.createClass({
     fields: PropTypes.array,
     hidden: PropTypes.bool,
     pullRight: PropTypes.bool,
+    appendMenus: PropTypes.oneOfType([
+      PropTypes.arrayOf(PropTypes.element),
+      PropTypes.element,
+    ]),
     children: PropTypes.oneOfType([
       PropTypes.arrayOf(PropTypes.element),
       PropTypes.element,
     ]),
   },
 
-  mixins: [PermissionsMixin],
+  mixins: [Reflux.connect(DashboardsStore), PermissionsMixin],
 
   getInitialState() {
     return {
-      dashboards: undefined,
       selectedDashboard: '',
+      loading: false,
     };
   },
 
   getDefaultProps() {
     return {
-      bsStyle: 'info',
+      bsStyle: 'default',
       configuration: {},
       hidden: false,
       pullRight: false,
     };
   },
 
-  componentDidMount() {
-    this._initializeDashboards();
-  },
-  _initializeDashboards() {
-    DashboardsStore.addOnWritableDashboardsChangedCallback((dashboards) => {
-      if (this.isMounted()) {
-        this._updateDashboards(dashboards);
-      }
-    });
-
-    const dashboards = DashboardsStore.writableDashboards;
-    // Trigger a dashboard update if the store haven't got any dashboards
-    if (dashboards.size === 0) {
-      DashboardsStore.updateWritableDashboards();
-      return;
-    }
-
-    this._updateDashboards(dashboards);
-  },
-  _updateDashboards(newDashboards) {
-    this.setState({ dashboards: newDashboards });
-  },
   _selectDashboard(dashboardId) {
     this.setState({ selectedDashboard: dashboardId });
     this.refs.widgetModal.open();
@@ -125,8 +112,11 @@ const AddToDashboardMenu = React.createClass({
 
     widgetConfig = searchParams.merge(widgetConfig).merge(configuration);
 
+    this.setState({ loading: true });
     const promise = WidgetsStore.addWidget(this.state.selectedDashboard, this.props.widgetType, title, widgetConfig.toJS());
-    promise.done(() => this.refs.widgetModal.saved());
+    promise
+      .then(() => this.refs.widgetModal.saved())
+      .finally(() => this.setState({ loading: false }));
   },
   _createNewDashboard() {
     this.refs.createDashboardModal.open();
@@ -147,9 +137,9 @@ const AddToDashboardMenu = React.createClass({
 
     this.state.dashboards
       .sortBy(dashboard => dashboard.title)
-      .forEach((dashboard, id) => {
+      .forEach((dashboard) => {
         dashboards = dashboards.push(
-          <MenuItem eventKey={id} key={dashboard.id}>
+          <MenuItem eventKey={dashboard.id} key={dashboard.id}>
             {dashboard.title}
           </MenuItem>,
         );
@@ -190,23 +180,31 @@ const AddToDashboardMenu = React.createClass({
     );
   },
   render() {
-    let dropdownMenu;
+    let addToDashboardMenu;
     if (this.state.dashboards === undefined) {
-      dropdownMenu = this._renderLoadingDashboardsMenu();
+      addToDashboardMenu = this._renderLoadingDashboardsMenu();
     } else {
-      dropdownMenu = (!this.props.hidden && (this.state.dashboards.size > 0 ? this._renderDashboardMenu() : this._renderNoDashboardsMenu()));
+      addToDashboardMenu = (!this.props.hidden && (this.state.dashboards.size > 0 ? this._renderDashboardMenu() : this._renderNoDashboardsMenu()));
     }
+
+    const { appendMenus, children } = this.props;
+    const loading = this.state.loading;
 
     return (
       <div style={{ display: 'inline-block' }}>
-        <ButtonGroup>
-          {this.props.children}
-          {dropdownMenu}
-        </ButtonGroup>
+        <ButtonToolbar className={style.toolbar}>
+          <ButtonGroup>
+            {addToDashboardMenu}
+            {appendMenus}
+          </ButtonGroup>
+
+          {children}
+        </ButtonToolbar>
         <WidgetCreationModal ref="widgetModal"
                              widgetType={this.props.widgetType}
                              onConfigurationSaved={this._saveWidget}
-                             fields={this.props.fields} />
+                             fields={this.props.fields}
+                             loading={loading} />
       </div>
     );
   },

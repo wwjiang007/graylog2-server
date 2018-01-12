@@ -144,6 +144,7 @@ const SearchResult = React.createClass({
           from: this.props.histogram.histogram_boundaries.from,
           to: this.props.histogram.histogram_boundaries.to,
           forceFetch: this.props.forceFetch,
+          fields: this.props.result.all_fields,
         });
       });
   },
@@ -199,6 +200,7 @@ const SearchResult = React.createClass({
                          searchInStream={this.props.searchInStream}
                          permissions={this.props.permissions}
                          loadingSearch={this.props.loadingSearch}
+                         searchConfig={this.props.searchConfig}
           />
         </Col>
         <Col md={9} sm={12} id="main-content-sidebar">

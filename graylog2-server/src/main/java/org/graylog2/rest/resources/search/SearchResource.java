@@ -43,6 +43,7 @@ import org.graylog2.rest.resources.search.responses.SearchResponse;
 import org.graylog2.shared.rest.resources.RestResource;
 import org.graylog2.shared.security.RestPermissions;
 import org.graylog2.shared.utilities.ExceptionUtils;
+import org.graylog2.utilities.SearchUtils;
 import org.joda.time.DateTime;
 import org.joda.time.Period;
 import org.slf4j.Logger;
@@ -52,6 +53,7 @@ import javax.ws.rs.BadRequestException;
 import javax.ws.rs.ForbiddenException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -76,11 +78,9 @@ public abstract class SearchResource extends RestResource {
     }
 
     protected void validateInterval(String interval) {
-        try {
-            Searches.DateHistogramInterval.valueOf(interval);
-        } catch (IllegalArgumentException e) {
-            LOG.warn("Invalid interval type. Returning HTTP 400.");
-            throw new BadRequestException("Invalid interval type", e);
+        if (!SearchUtils.validateInterval(interval)) {
+            LOG.warn("Invalid interval type <{}>. Returning HTTP 400.", interval);
+            throw new BadRequestException("Invalid interval type: " + interval + "\"");
         }
     }
 
@@ -134,21 +134,34 @@ public abstract class SearchResource extends RestResource {
                                                                           boolean includeCardinality) {
         try {
             return searches.fieldHistogram(
-                query,
-                field,
-                Searches.DateHistogramInterval.valueOf(interval),
-                filter,
-                timeRange,
-                includeCardinality);
+                    query,
+                    field,
+                    Searches.DateHistogramInterval.valueOf(interval),
+                    filter,
+                    timeRange,
+                    true,
+                    includeCardinality);
         } catch (FieldTypeException e) {
-            final String msg = "Field histogram query failed. Make sure that field [" + field + "] is a numeric type.";
-            LOG.error(msg);
-            throw new BadRequestException(msg, e);
+            try {
+                LOG.debug("Field histogram query failed. Make sure that field [{}] is a numeric type. Retrying without numerical statistics.", field);
+                return searches.fieldHistogram(
+                        query,
+                        field,
+                        Searches.DateHistogramInterval.valueOf(interval),
+                        filter,
+                        timeRange,
+                        false,
+                        true);
+            } catch (FieldTypeException e1) {
+                final String msg = "Field histogram for field [" + field + "] failed while calculating its cardinality.";
+                LOG.error(msg, ExceptionUtils.getRootCauseMessage(e1));
+                throw new BadRequestException(msg, e1);
+            }
         }
     }
 
     protected TermsResult buildTermsResult(org.graylog2.indexer.results.TermsResult tr) {
-        return TermsResult.create(tr.tookMs(), tr.getTerms(), tr.getMissing(), tr.getOther(), tr.getTotal(), tr.getBuiltQuery());
+        return TermsResult.create(tr.tookMs(), tr.getTerms(), tr.termsMapping(), tr.getMissing(), tr.getOther(), tr.getTotal(), tr.getBuiltQuery());
     }
 
     protected TermsStatsResult buildTermsStatsResult(org.graylog2.indexer.results.TermsStatsResult tr) {
@@ -318,4 +331,10 @@ public abstract class SearchResource extends RestResource {
         return AbsoluteRange.create(from, to);
     }
 
+    protected List<String> splitStackedFields(String stackedFieldsParam) {
+        if (stackedFieldsParam == null || stackedFieldsParam.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return Splitter.on(',').trimResults().omitEmptyStrings().splitToList(stackedFieldsParam);
+    }
 }

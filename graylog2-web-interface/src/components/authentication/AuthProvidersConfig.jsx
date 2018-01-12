@@ -1,10 +1,11 @@
 import PropTypes from 'prop-types';
 import React from 'react';
-import { Row, Col, Button, Alert, Table } from 'react-bootstrap';
+import { Alert, Button, Col, Row, Table } from 'react-bootstrap';
 import BootstrapModalForm from 'components/bootstrap/BootstrapModalForm';
-import { DocumentTitle, PageHeader, IfPermitted, SortableList } from 'components/common';
+import { DocumentTitle, IfPermitted, PageHeader, SortableList } from 'components/common';
 import Routes from 'routing/Routes';
 import ObjectUtils from 'util/ObjectUtils';
+import history from 'util/History';
 import naturalSort from 'javascript-natural-sort';
 
 const AuthProvidersConfig = React.createClass({
@@ -12,7 +13,6 @@ const AuthProvidersConfig = React.createClass({
     config: PropTypes.object.isRequired,
     descriptors: PropTypes.object.isRequired,
     updateConfig: PropTypes.func.isRequired,
-    history: PropTypes.object.isRequired,
   },
 
   getDefaultProps() {
@@ -55,7 +55,7 @@ const AuthProvidersConfig = React.createClass({
   },
 
   _onCancel() {
-    this.props.history.pushState(null, Routes.SYSTEM.AUTHENTICATION.OVERVIEW);
+    history.push(Routes.SYSTEM.AUTHENTICATION.OVERVIEW);
   },
 
   _updateSorting(newSorting) {
@@ -150,51 +150,53 @@ const AuthProvidersConfig = React.createClass({
             </span>
           </PageHeader>
           <Row>
-            <Col md={6}>
-              <Table striped bordered className="top-margin">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>Provider</th>
-                    <th>Description</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {this._summary()}
-                </tbody>
-              </Table>
-
-              <IfPermitted permissions="clusterconfigentry:edit">
-                <Button bsStyle="primary" onClick={this._openModal} className="save-button-margin">Update</Button>
-                <Button onClick={this._onCancel}>Cancel</Button>
-              </IfPermitted>
-
-              <BootstrapModalForm ref="configModal"
-                                  title="Update Authentication Provider Configuration"
-                                  onSubmitForm={this._saveConfig}
-                                  onModalClose={this._resetConfig}
-                                  submitButtonText="Save">
-                <h3>Order</h3>
-                <p>Use drag and drop to change the execution order of the authentication providers.</p>
-                <SortableList items={this._sortableItems()} onMoveItem={this._updateSorting} />
-
-                <h3>Status</h3>
-                <p>Change the checkboxes to change the status of an authentication provider.</p>
-                <Table striped bordered condensed className="top-margin">
+            <IfPermitted permissions={['clusterconfigentry:read', 'authentication:read']}>
+              <Col md={6}>
+                <Table striped bordered className="top-margin">
                   <thead>
                     <tr>
+                      <th>#</th>
                       <th>Provider</th>
-                      <th>Enabled</th>
+                      <th>Description</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {this._statusForm()}
+                    {this._summary()}
                   </tbody>
                 </Table>
-                {this._noActiveRealmWarning()}
-              </BootstrapModalForm>
-            </Col>
+
+                <IfPermitted permissions={['clusterconfigentry:edit', 'authentication:edit']}>
+                  <Button bsStyle="primary" onClick={this._openModal} className="save-button-margin">Edit</Button>
+                  <Button onClick={this._onCancel}>Cancel</Button>
+                </IfPermitted>
+
+                <BootstrapModalForm ref="configModal"
+                                    title="Update Authentication Provider Configuration"
+                                    onSubmitForm={this._saveConfig}
+                                    onModalClose={this._resetConfig}
+                                    submitButtonText="Save">
+                  <h3>Order</h3>
+                  <p>Use drag and drop to change the execution order of the authentication providers.</p>
+                  <SortableList items={this._sortableItems()} onMoveItem={this._updateSorting} />
+
+                  <h3>Status</h3>
+                  <p>Change the checkboxes to change the status of an authentication provider.</p>
+                  <Table striped bordered condensed className="top-margin">
+                    <thead>
+                      <tr>
+                        <th>Provider</th>
+                        <th>Enabled</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {this._statusForm()}
+                    </tbody>
+                  </Table>
+                  {this._noActiveRealmWarning()}
+                </BootstrapModalForm>
+              </Col>
+            </IfPermitted>
           </Row>
         </span>
       </DocumentTitle>

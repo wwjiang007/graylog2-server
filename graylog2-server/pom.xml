@@ -22,7 +22,7 @@
     <parent>
         <groupId>org.graylog</groupId>
         <artifactId>graylog-project-parent</artifactId>
-        <version>2.4.0-SNAPSHOT</version>
+        <version>3.0.0-SNAPSHOT</version>
         <relativePath>../graylog-project-parent</relativePath>
     </parent>
 
@@ -65,7 +65,7 @@
 
         <it.es.httpPort>19200</it.es.httpPort>
         <it.es.transportPort>19300</it.es.transportPort>
-        <it.es.version>5.5.2</it.es.version>
+        <it.es.version>5.6.4</it.es.version>
         <it.es.instanceCount>1</it.es.instanceCount>
         <it.es.clusterName>test</it.es.clusterName>
         <it.es.await>false</it.es.await>
@@ -196,6 +196,10 @@
         </dependency>
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-jmx</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-json</artifactId>
         </dependency>
 
@@ -275,11 +279,6 @@
         </dependency>
 
         <dependency>
-            <groupId>net.java.dev.jna</groupId>
-            <artifactId>jna</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>org.kie</groupId>
             <artifactId>kie-api</artifactId>
         </dependency>
@@ -355,10 +354,6 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-joda-time</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.lordofthejars</groupId>
-            <artifactId>nosqlunit-elasticsearch2</artifactId>
         </dependency>
         <dependency>
             <groupId>com.lordofthejars</groupId>
@@ -477,8 +472,12 @@
         </dependency>
         <!-- used for sanity -->
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
+            <groupId>net.jcip</groupId>
+            <artifactId>jcip-annotations</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
         </dependency>
         <dependency>
             <groupId>com.google.auto.value</groupId>
@@ -549,17 +548,12 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>build-helper-maven-plugin</artifactId>
-                    <version>1.12</version>
+                    <version>3.0.0</version>
                 </plugin>
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>buildnumber-maven-plugin</artifactId>
                     <version>1.4</version>
-                </plugin>
-                <plugin>
-                    <groupId>com.versioneye</groupId>
-                    <artifactId>versioneye-maven-plugin</artifactId>
-                    <version>3.11.1</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -656,15 +650,6 @@
                 <groupId>com.mycila</groupId>
                 <artifactId>license-maven-plugin</artifactId>
             </plugin>
-            <plugin>
-                <groupId>com.versioneye</groupId>
-                <artifactId>versioneye-maven-plugin</artifactId>
-                <configuration>
-                    <organisation>Graylog</organisation>
-                    <team>Owners</team>
-                    <projectId>570f6fbbd1a090000fe62b58</projectId>
-                </configuration>
-            </plugin>
         </plugins>
     </build>
     <profiles>
@@ -735,21 +720,21 @@
                         <configuration>
                             <workingDirectory>${webInterface.path}</workingDirectory>
                             <nodeVersion>${nodejs.version}</nodeVersion>
-                            <npmVersion>${npm.version}</npmVersion>
+                            <yarnVersion>${yarn.version}</yarnVersion>
                         </configuration>
 
                         <executions>
                             <execution>
-                                <id>install node and npm</id>
+                                <id>install node and yarn</id>
                                 <goals>
-                                    <goal>install-node-and-npm</goal>
+                                    <goal>install-node-and-yarn</goal>
                                 </goals>
                             </execution>
 
                             <execution>
-                                <id>npm install</id>
+                                <id>yarn install</id>
                                 <goals>
-                                    <goal>npm</goal>
+                                    <goal>yarn</goal>
                                 </goals>
                                 <!-- Optional configuration which provides for running any npm command -->
                                 <configuration>
@@ -758,92 +743,26 @@
                             </execution>
 
                             <execution>
-                                <id>npm run build</id>
+                                <id>yarn run build</id>
                                 <goals>
-                                    <goal>npm</goal>
+                                    <goal>yarn</goal>
                                 </goals>
                                 <configuration>
                                     <arguments>run build</arguments>
                                 </configuration>
                             </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-        <profile>
-            <id>integration-tests-elasticsearch-2</id>
-            <activation>
-                <property>
-                    <name>it.ElasticsearchVersion</name>
-                    <value>2</value>
-                </property>
-            </activation>
-            <properties>
-                <it.es.version>2.4.6</it.es.version>
-            </properties>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-failsafe-plugin</artifactId>
-                        <configuration>
-                            <forkCount>1</forkCount>
-                            <skip>${it.es.skip}</skip>
-                        </configuration>
-                        <executions>
+
                             <execution>
+                                <id>yarn test</id>
                                 <goals>
-                                    <goal>integration-test</goal>
-                                    <goal>verify</goal>
+                                    <goal>yarn</goal>
                                 </goals>
+                                <phase>test</phase>
+                                <configuration>
+                                    <arguments>test</arguments>
+                                </configuration>
                             </execution>
                         </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>com.github.alexcojocaru</groupId>
-                        <artifactId>elasticsearch-maven-plugin</artifactId>
-                        <version>2.3</version>
-                        <configuration>
-                            <skip>${it.es.skip}</skip>
-                            <clusterName>${it.es.clusterName}</clusterName>
-                            <httpPort>${it.es.httpPort}</httpPort>
-                            <tcpPort>${it.es.transportPort}</tcpPort>
-                            <autoCreateIndex>true</autoCreateIndex>
-                            <configPath>${project.basedir}/src/test/resources/it/elasticsearch2</configPath>
-                            <logsDirname>${project.build.directory}/elasticsearch2-logs</logsDirname>
-                            <scriptFile/>
-                        </configuration>
-                        <executions>
-                            <!-- The elasticsearch plugin is by default bound to the
-                            pre-integration-test and post-integration-test phases -->
-                            <execution>
-                                <id>start-elasticsearch</id>
-                                <phase>pre-integration-test</phase>
-                                <goals>
-                                    <goal>start</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>stop-elasticsearch</id>
-                                <phase>post-integration-test</phase>
-                                <goals>
-                                    <goal>stop</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                        <dependencies>
-                            <dependency>
-                                <groupId>org.elasticsearch</groupId>
-                                <artifactId>elasticsearch</artifactId>
-                                <version>${it.es.version}</version>
-                            </dependency>
-                            <dependency>
-                                <groupId>log4j</groupId>
-                                <artifactId>log4j</artifactId>
-                                <version>1.2.17</version>
-                            </dependency>
-                        </dependencies>
                     </plugin>
                 </plugins>
             </build>
@@ -858,7 +777,7 @@
                 </property>
             </activation>
             <properties>
-                <it.es.version>5.5.2</it.es.version>
+                <it.es.version>5.6.4</it.es.version>
             </properties>
             <build>
                 <plugins>

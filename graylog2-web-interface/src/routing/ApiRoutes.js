@@ -41,6 +41,7 @@ const ApiRoutes = {
   ClusterApiResource: {
     list: () => { return { url: '/system/cluster/nodes' }; },
     node: () => { return { url: '/system/cluster/node' }; },
+    elasticsearchStats: () => { return { url: '/system/cluster/stats/elasticsearch' }; },
   },
   DashboardsApiController: {
     create: () => { return { url: '/dashboards' }; },
@@ -89,6 +90,7 @@ const ApiRoutes = {
     create: () => { return { url: '/system/indices/index_sets' }; },
     delete: (indexSetId, deleteIndices) => { return { url: `/system/indices/index_sets/${indexSetId}?delete_indices=${deleteIndices}` }; },
     setDefault: (indexSetId) => { return { url: `/system/indices/index_sets/${indexSetId}/default` }; },
+    stats: () => { return { url: '/system/indices/index_sets/stats' }; },
   },
   IndicesApiController: {
     close: (indexName) => { return { url: `/system/indexer/indices/${indexName}/close` }; },
@@ -166,6 +168,7 @@ const ApiRoutes = {
     sendDummyAlert: (streamId) => { return { url: `/streams/${streamId}/alerts/sendDummyAlert` }; },
   },
   StreamsApiController: {
+    index: () => { return { url: '/streams' }; },
     get: (streamId) => { return { url: `/streams/${streamId}` }; },
     create: () => { return { url: '/streams' }; },
     update: (streamId) => { return { url: `/streams/${streamId}` }; },
@@ -286,16 +289,28 @@ const ApiRoutes = {
       queryString.field = field;
       return { url: this._buildUrl(url, queryString) };
     },
-    fieldTerms(type, query, field, timerange, streamId) {
+    fieldTerms(type, query, field, order, size, stackedFields, timerange, streamId) {
       const url = `/search/universal/${type}/terms`;
       const queryString = this._buildBaseQueryString(query, timerange, streamId);
       queryString.field = field;
+      queryString.order = `${field}:${order}`; // REST API expects <field>:<order> format for the "order" param
+      queryString.size = size;
+      queryString.stacked_fields = stackedFields;
       return { url: this._buildUrl(url, queryString) };
     },
-  },
-  UsageStatsApiController: {
-    pluginEnabled: () => { return { url: '/plugins/org.graylog.plugins.usagestatistics/config' }; },
-    setOptOutState: () => { return { url: '/plugins/org.graylog.plugins.usagestatistics/opt-out' }; },
+    fieldTermsHistogram(type, query, field, order, size, stackedFields, timerange, interval, streamId) {
+      const url = `/search/universal/${type}/terms-histogram`;
+      const queryString = this._buildBaseQueryString(query, timerange, streamId);
+      // The server is using sane default interval if we don't provide one
+      if (interval && interval !== '') {
+        queryString.interval = interval.toUpperCase();
+      }
+      queryString.field = field;
+      queryString.order = `${field}:${order}`; // REST API expects <field>:<order> format for the "order" param
+      queryString.size = size;
+      queryString.stacked_fields = stackedFields;
+      return { url: this._buildUrl(url, queryString) };
+    },
   },
   UsersApiController: {
     changePassword: (username) => { return { url: `/users/${username}/password` }; },

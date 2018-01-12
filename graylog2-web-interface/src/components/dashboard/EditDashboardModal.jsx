@@ -7,8 +7,8 @@ import { Input } from 'components/bootstrap';
 
 import BootstrapModalForm from '../bootstrap/BootstrapModalForm';
 
-import StoreProvider from 'injection/StoreProvider';
-const DashboardsStore = StoreProvider.getStore('Dashboards');
+import CombinedProvider from 'injection/CombinedProvider';
+const { DashboardsActions } = CombinedProvider.get('Dashboards');
 
 const EditDashboardModal = React.createClass({
   propTypes: {
@@ -38,7 +38,7 @@ const EditDashboardModal = React.createClass({
                           submitButtonText="Save">
         <fieldset>
           <Input id={`${this.props.id}-title`} type="text" label="Title:" onChange={this._onTitleChange} value={this.state.title} autoFocus required />
-          <Input type="text" label="Description:" name="Description" onChange={this._onDescriptionChange} value={this.state.description} required />
+          <Input id={`${this.props.id}-description`} type="text" label="Description:" name="Description" onChange={this._onDescriptionChange} value={this.state.description} required />
         </fieldset>
       </BootstrapModalForm>
     );
@@ -53,7 +53,7 @@ const EditDashboardModal = React.createClass({
     let promise;
 
     if (this._isCreateModal()) {
-      promise = DashboardsStore.createDashboard(this.state.title, this.state.description);
+      promise = DashboardsActions.create(this.state.title, this.state.description);
       promise.then((id) => {
         this.close();
 
@@ -64,7 +64,7 @@ const EditDashboardModal = React.createClass({
         this.setState(this.getInitialState());
       });
     } else {
-      promise = DashboardsStore.saveDashboard(this.state);
+      promise = DashboardsActions.update(this.state);
       promise.then(() => {
         this.close();
 

@@ -1,9 +1,10 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
-import { Button, Col, Row } from 'react-bootstrap';
+import { Button, ButtonToolbar, Col, Row } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import Routes from 'routing/Routes';
+import history from 'util/History';
 import { DocumentTitle, PageHeader, Spinner } from 'components/common';
 
 import { Cache, CacheCreate, CacheForm, CachesOverview } from 'components/lookup-tables';
@@ -15,10 +16,9 @@ const { LookupTableCachesStore, LookupTableCachesActions } = CombinedProvider.ge
 
 const LUTCachesPage = React.createClass({
   propTypes: {
-// eslint-disable-next-line react/no-unused-prop-types
+    // eslint-disable-next-line react/no-unused-prop-types
     params: PropTypes.object.isRequired,
     route: PropTypes.object.isRequired,
-    history: PropTypes.object.isRequired,
   },
 
   mixins: [
@@ -47,7 +47,7 @@ const LUTCachesPage = React.createClass({
   _saved() {
     // reset detail state
     this.setState({ cache: undefined });
-    this.props.history.pushState(null, Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW);
+    history.push(Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW);
   },
 
   _isCreating(props) {
@@ -88,11 +88,10 @@ const LUTCachesPage = React.createClass({
         content = <Spinner text="Loading data cache types" />;
       } else {
         content =
-          (<CacheCreate history={this.props.history}
-                       types={this.state.types}
-                       saved={this._saved}
-                       validate={this._validateCache}
-                       validationErrors={this.state.validationErrors} />);
+          (<CacheCreate types={this.state.types}
+                        saved={this._saved}
+                        validate={this._validateCache}
+                        validationErrors={this.state.validationErrors} />);
       }
     } else if (!this.state.caches) {
       content = <Spinner text="Loading caches" />;
@@ -108,28 +107,17 @@ const LUTCachesPage = React.createClass({
             <span>Caches provide the actual values for lookup tables</span>
             {null}
             <span>
-              {(isShowing || isEditing) && (
-                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.edit(this.props.params.cacheName)}
-                               onlyActiveOnIndex>
-                  <Button bsStyle="success">Edit</Button>
+              <ButtonToolbar>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.OVERVIEW}>
+                  <Button bsStyle="info">Lookup Tables</Button>
                 </LinkContainer>
-              )}
-              &nbsp;
-              {(isShowing || isEditing) && (
-                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW}
-                               onlyActiveOnIndex>
-                  <Button bsStyle="info">Caches</Button>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW}>
+                  <Button bsStyle="info" className="active">Caches</Button>
                 </LinkContainer>
-              )}
-              &nbsp;
-              <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.OVERVIEW} onlyActiveOnIndex>
-                <Button bsStyle="info">Lookup Tables</Button>
-              </LinkContainer>
-              &nbsp;
-              <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW}
-                             onlyActiveOnIndex>
-                <Button bsStyle="info">Data Adapters</Button>
-              </LinkContainer>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW}>
+                  <Button bsStyle="info">Data Adapters</Button>
+                </LinkContainer>
+              </ButtonToolbar>
             </span>
           </PageHeader>
 

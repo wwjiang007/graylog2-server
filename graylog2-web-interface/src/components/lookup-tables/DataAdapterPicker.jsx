@@ -35,7 +35,8 @@ const DataAdapterPicker = React.createClass({
 
     return (
       <fieldset>
-        <Input label="Data Adapter"
+        <Input id="data-adapter-select"
+               label="Data Adapter"
                required
                autoFocus
                help="Select an existing data adapter"
@@ -45,7 +46,7 @@ const DataAdapterPicker = React.createClass({
                   clearable={false}
                   options={sortedAdapters}
                   matchProp="value"
-                  onValueChange={this.props.onSelect}
+                  onChange={this.props.onSelect}
                   value={this.props.selectedId} />
         </Input>
       </fieldset>

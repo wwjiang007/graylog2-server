@@ -22,6 +22,7 @@ import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import io.searchbox.client.JestClient;
 import io.searchbox.client.JestResult;
@@ -29,6 +30,7 @@ import io.searchbox.core.MultiSearch;
 import io.searchbox.core.MultiSearchResult;
 import io.searchbox.core.Search;
 import io.searchbox.core.search.aggregation.CardinalityAggregation;
+import io.searchbox.core.search.aggregation.DateHistogramAggregation;
 import io.searchbox.core.search.aggregation.ExtendedStatsAggregation;
 import io.searchbox.core.search.aggregation.FilterAggregation;
 import io.searchbox.core.search.aggregation.HistogramAggregation;
@@ -40,11 +42,15 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.index.query.BoolQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.script.Script;
+import org.elasticsearch.script.ScriptType;
+import org.elasticsearch.search.aggregations.AbstractAggregationBuilder;
 import org.elasticsearch.search.aggregations.AggregationBuilders;
 import org.elasticsearch.search.aggregations.bucket.filter.FilterAggregationBuilder;
-import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramBuilder;
+import org.elasticsearch.search.aggregations.bucket.histogram.DateHistogramAggregationBuilder;
 import org.elasticsearch.search.aggregations.bucket.terms.Terms;
 import org.elasticsearch.search.builder.SearchSourceBuilder;
+import org.elasticsearch.search.fetch.subphase.highlight.HighlightBuilder;
 import org.graylog2.Configuration;
 import org.graylog2.database.NotFoundException;
 import org.graylog2.indexer.ElasticsearchException;
@@ -52,6 +58,7 @@ import org.graylog2.indexer.FieldTypeException;
 import org.graylog2.indexer.IndexHelper;
 import org.graylog2.indexer.IndexMapping;
 import org.graylog2.indexer.IndexSet;
+import org.graylog2.indexer.IndexSetRegistry;
 import org.graylog2.indexer.cluster.jest.JestUtils;
 import org.graylog2.indexer.indices.Indices;
 import org.graylog2.indexer.ranges.IndexRange;
@@ -64,6 +71,7 @@ import org.graylog2.indexer.results.HistogramResult;
 import org.graylog2.indexer.results.ResultMessage;
 import org.graylog2.indexer.results.ScrollResult;
 import org.graylog2.indexer.results.SearchResult;
+import org.graylog2.indexer.results.TermsHistogramResult;
 import org.graylog2.indexer.results.TermsResult;
 import org.graylog2.indexer.results.TermsStatsResult;
 import org.graylog2.indexer.searches.timeranges.TimeRanges;
@@ -76,6 +84,7 @@ import org.joda.time.Period;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Singleton;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -105,6 +114,10 @@ public class Searches {
     public static final String AGG_CARDINALITY = "gl2_field_cardinality";
     public static final String AGG_VALUE_COUNT = "gl2_value_count";
     private static final Pattern filterStreamIdPattern = Pattern.compile("^(.+[^\\p{Alnum}])?streams:([\\p{XDigit}]+)");
+
+    // This is the "WORD SEPARATOR MIDDLE DOT" unicode character. It's used to join and split the term values in a
+    // stacked terms query.
+    public static final String STACKED_TERMS_AGG_SEPARATOR = "\u2E31";
 
     public enum TermsStatsOrder {
         TERM,
@@ -168,6 +181,7 @@ public class Searches {
     private final Counter esTotalSearchesCounter;
     private final StreamService streamService;
     private final Indices indices;
+    private final IndexSetRegistry indexSetRegistry;
     private final JestClient jestClient;
     private final ScrollResult.Factory scrollResultFactory;
 
@@ -177,6 +191,7 @@ public class Searches {
                     MetricRegistry metricRegistry,
                     StreamService streamService,
                     Indices indices,
+                    IndexSetRegistry indexSetRegistry,
                     JestClient jestClient,
                     ScrollResult.Factory scrollResultFactory) {
         this.configuration = requireNonNull(configuration, "configuration");
@@ -187,6 +202,7 @@ public class Searches {
         this.esTotalSearchesCounter = metricRegistry.counter(name(Searches.class, "elasticsearch", "total-searches"));
         this.streamService = requireNonNull(streamService, "streamService");
         this.indices = requireNonNull(indices, "indices");
+        this.indexSetRegistry = requireNonNull(indexSetRegistry, "indexSetRegistry");
         this.jestClient = requireNonNull(jestClient, "jestClient");
         this.scrollResultFactory = requireNonNull(scrollResultFactory, "scrollResultFactory");
     }
@@ -212,6 +228,9 @@ public class Searches {
 
     public ScrollResult scroll(String query, TimeRange range, int limit, int offset, List<String> fields, String filter) {
         final Set<String> affectedIndices = determineAffectedIndices(range, filter);
+        final Set<String> indexWildcards = indexSetRegistry.getForIndices(affectedIndices).stream()
+                .map(IndexSet::getIndexWildcard)
+                .collect(Collectors.toSet());
 
         final String searchQuery;
         final Sorting sorting = new Sorting("_doc", Sorting.Direction.ASC);
@@ -224,9 +243,9 @@ public class Searches {
         final Search.Builder initialSearchBuilder = new Search.Builder(searchQuery)
             .addType(IndexMapping.TYPE_MESSAGE)
             .setParameter(Parameters.SCROLL, "1m")
-            .addIndex(affectedIndices);
+            .addIndex(indexWildcards);
         fields.forEach(initialSearchBuilder::addSourceIncludePattern);
-        final io.searchbox.core.SearchResult initialResult = wrapInMultiSearch(initialSearchBuilder.build(), () -> "Unable to perform scroll search");
+        final io.searchbox.core.SearchResult initialResult = checkForFailedShards(JestUtils.execute(jestClient, initialSearchBuilder.build(), () -> "Unable to perform scroll search"));
 
         recordEsMetrics(initialResult, range);
 
@@ -274,15 +293,53 @@ public class Searches {
         return new SearchResult(hits, searchResult.getTotal(), indexRanges, config.query(), requestBuilder.toString(), tookMsFromSearchResult(searchResult));
     }
 
-    public TermsResult terms(String field, int size, String query, String filter, TimeRange range, Sorting.Direction sorting) {
+    public AbstractAggregationBuilder createTermsBuilder(String field, List<String> stackedFields, int size, Terms.Order termsOrder) {
+        if (stackedFields.isEmpty()) {
+            // Wrap terms aggregation in a no-op filter to make sure the result structure is correct when not having
+            // stacked fields.
+            return AggregationBuilders.filter(AGG_FILTER, QueryBuilders.matchAllQuery())
+                    .subAggregation(AggregationBuilders.terms(AGG_TERMS)
+                            .field(field)
+                            .size(size > 0 ? size : 50)
+                            .order(termsOrder));
+        }
+
+        // If the methods gets stacked fields, we have to use scripting to concatenate the fields.
+        // There is currently no other way to do this. (as of ES 5.6)
+        final StringBuilder scriptStringBuilder = new StringBuilder();
+
+        // Build a filter for the terms aggregation to make sure we only get terms for messages where all fields
+        // exist.
+        final BoolQueryBuilder filterQuery = QueryBuilders.boolQuery();
+
+        // Add the main field
+        scriptStringBuilder.append("doc['").append(field).append("'].value");
+        filterQuery.must(QueryBuilders.existsQuery(field));
+
+        // Add all other fields
+        stackedFields.forEach(f -> {
+            // There is no way to use some kind of structured value for the stacked fields in the painless script
+            // so we have to use a "special" character (that is hopefully not showing up in any value) to join the
+            // stacked field values. That allows us to split the result again later to create a field->value mapping.
+            scriptStringBuilder.append(" + \"").append(STACKED_TERMS_AGG_SEPARATOR).append("\" + ");
+            scriptStringBuilder.append("doc['").append(f).append("'].value");
+            filterQuery.must(QueryBuilders.existsQuery(f));
+        });
+
+        return AggregationBuilders.filter(AGG_FILTER, filterQuery)
+                .subAggregation(AggregationBuilders.terms(AGG_TERMS)
+                        .script(new Script(ScriptType.INLINE, "painless", scriptStringBuilder.toString(),  Collections.emptyMap()))
+                        .size(size > 0 ? size : 50)
+                        .order(termsOrder));
+    }
+
+    public TermsResult terms(String field, List<String> stackedFields, int size, String query, String filter, TimeRange range, Sorting.Direction sorting) {
         final Terms.Order termsOrder = sorting == Sorting.Direction.DESC ? Terms.Order.count(false) : Terms.Order.count(true);
 
-        final SearchSourceBuilder searchSourceBuilder = filteredSearchRequest(query, filter, range)
-                .aggregation(AggregationBuilders.terms(AGG_TERMS)
-                        .field(field)
-                        .size(size > 0 ? size : 50)
-                        .order(termsOrder))
-                .aggregation(AggregationBuilders.missing("missing")
+        final SearchSourceBuilder searchSourceBuilder = filteredSearchRequest(query, filter, range);
+
+        searchSourceBuilder.aggregation(createTermsBuilder(field, stackedFields, size, termsOrder));
+        searchSourceBuilder.aggregation(AggregationBuilders.missing("missing")
                         .field(field));
 
         final Set<String> affectedIndices = determineAffectedIndices(range, filter);
@@ -298,7 +355,7 @@ public class Searches {
 
         recordEsMetrics(searchResult, range);
 
-        final TermsAggregation termsAggregation = searchResult.getAggregations().getTermsAggregation(AGG_TERMS);
+        final TermsAggregation termsAggregation = searchResult.getAggregations().getFilterAggregation(AGG_FILTER).getTermsAggregation(AGG_TERMS);
         final MissingAggregation missing = searchResult.getAggregations().getMissingAggregation("missing");
 
         return new TermsResult(
@@ -307,8 +364,14 @@ public class Searches {
                 searchResult.getTotal(),
                 query,
                 searchSourceBuilder.toString(),
-                tookMsFromSearchResult(searchResult)
+                tookMsFromSearchResult(searchResult),
+                // Concat field and stacked fields into one fields list
+                ImmutableList.<String>builder().add(field).addAll(stackedFields).build()
         );
+    }
+
+    public TermsResult terms(String field, int size, String query, String filter, TimeRange range, Sorting.Direction sorting) {
+        return terms(field, Collections.emptyList(), size, query, filter, range, sorting);
     }
 
     public TermsResult terms(String field, int size, String query, String filter, TimeRange range) {
@@ -317,6 +380,51 @@ public class Searches {
 
     public TermsResult terms(String field, int size, String query, TimeRange range) {
         return terms(field, size, query, null, range, Sorting.Direction.DESC);
+    }
+
+    public TermsHistogramResult termsHistogram(String field,
+                                               List<String> stackedFields,
+                                               int size,
+                                               String query,
+                                               String filter,
+                                               TimeRange range,
+                                               DateHistogramInterval interval,
+                                               Sorting.Direction sorting) {
+        final Terms.Order termsOrder = sorting == Sorting.Direction.DESC ? Terms.Order.count(false) : Terms.Order.count(true);
+
+        final DateHistogramAggregationBuilder histogramBuilder = AggregationBuilders.dateHistogram(AGG_HISTOGRAM)
+                .field(Message.FIELD_TIMESTAMP)
+                .dateHistogramInterval(interval.toESInterval())
+                .subAggregation(createTermsBuilder(field, stackedFields, size, termsOrder))
+                .subAggregation(AggregationBuilders.missing("missing").field(field));
+
+        final SearchSourceBuilder searchSourceBuilder = filteredSearchRequest(query, filter, range)
+                .aggregation(histogramBuilder);
+
+        final Set<String> affectedIndices = determineAffectedIndices(range, filter);
+        if (affectedIndices.isEmpty()) {
+            return TermsHistogramResult.empty(query, searchSourceBuilder.toString(), size, interval);
+        }
+        final Search.Builder searchBuilder = new Search.Builder(searchSourceBuilder.toString())
+                .ignoreUnavailable(true)
+                .allowNoIndices(true)
+                .addType(IndexMapping.TYPE_MESSAGE)
+                .addIndex(affectedIndices);
+        final io.searchbox.core.SearchResult searchResult = wrapInMultiSearch(searchBuilder.build(), () -> "Unable to perform terms query");
+
+        recordEsMetrics(searchResult, range);
+
+        final DateHistogramAggregation dateHistogramAggregation = searchResult.getAggregations().getDateHistogramAggregation(AGG_HISTOGRAM);
+
+        return new TermsHistogramResult(
+                dateHistogramAggregation,
+                query,
+                searchSourceBuilder.toString(),
+                size,
+                tookMsFromSearchResult(searchResult),
+                interval,
+                // Concat field and stacked fields into one fields list
+                ImmutableList.<String>builder().add(field).addAll(stackedFields).build());
     }
 
     public TermsStatsResult termsStats(String keyField, String valueField, TermsStatsOrder order, int size, String query, String filter, TimeRange range) {
@@ -375,16 +483,14 @@ public class Searches {
                 termsOrder = Terms.Order.count(true);
         }
 
-        final FilterAggregationBuilder builder = AggregationBuilders.filter(AGG_FILTER)
+        final FilterAggregationBuilder builder = AggregationBuilders.filter(AGG_FILTER, standardAggregationFilters(range, filter))
             .subAggregation(
                 AggregationBuilders.terms(AGG_TERMS_STATS)
                     .field(keyField)
                     .subAggregation(AggregationBuilders.stats(AGG_STATS).field(valueField))
                     .order(termsOrder)
                     .size(size)
-            )
-            .filter(standardAggregationFilters(range, filter));
-
+            );
         searchSourceBuilder.aggregation(builder);
 
         if (affectedIndices.isEmpty()) {
@@ -437,8 +543,7 @@ public class Searches {
             searchSourceBuilder = filteredSearchRequest(query, filter, range);
         }
 
-        final FilterAggregationBuilder filterBuilder = AggregationBuilders.filter(AGG_FILTER)
-                .filter(standardAggregationFilters(range, filter));
+        final FilterAggregationBuilder filterBuilder = AggregationBuilders.filter(AGG_FILTER, standardAggregationFilters(range, filter));
         if (includeCount) {
             searchSourceBuilder.aggregation(AggregationBuilders.count(AGG_VALUE_COUNT).field(field));
         }
@@ -496,9 +601,9 @@ public class Searches {
     }
 
     public HistogramResult histogram(String query, DateHistogramInterval interval, String filter, TimeRange range) {
-        final DateHistogramBuilder histogramBuilder = AggregationBuilders.dateHistogram(AGG_HISTOGRAM)
+        final DateHistogramAggregationBuilder histogramBuilder = AggregationBuilders.dateHistogram(AGG_HISTOGRAM)
                 .field(Message.FIELD_TIMESTAMP)
-                .interval(interval.toESInterval());
+                .dateHistogramInterval(interval.toESInterval());
 
         final SearchSourceBuilder searchSourceBuilder = filteredSearchRequest(query, filter, range)
             .aggregation(histogramBuilder);
@@ -534,11 +639,26 @@ public class Searches {
                                           String filter,
                                           TimeRange range,
                                           boolean includeCardinality) {
-        final DateHistogramBuilder dateHistogramBuilder = AggregationBuilders.dateHistogram(AGG_HISTOGRAM)
-                .field(Message.FIELD_TIMESTAMP)
-                .subAggregation(AggregationBuilders.stats(AGG_STATS).field(field))
-                .interval(interval.toESInterval());
+        return fieldHistogram(query, field, interval, filter, range, true, includeCardinality);
+    }
 
+    public HistogramResult fieldHistogram(String query,
+                                          String field,
+                                          DateHistogramInterval interval,
+                                          String filter,
+                                          TimeRange range,
+                                          boolean includeStats,
+                                          boolean includeCardinality) {
+        final DateHistogramAggregationBuilder dateHistogramBuilder = AggregationBuilders.dateHistogram(AGG_HISTOGRAM)
+                .field(Message.FIELD_TIMESTAMP)
+                .dateHistogramInterval(interval.toESInterval());
+
+        if (includeStats) {
+            dateHistogramBuilder.subAggregation(AggregationBuilders.stats(AGG_STATS).field(field));
+        } else {
+            // Stats aggregation already include count. Only calculate it explicitly when stats are disabled
+            dateHistogramBuilder.subAggregation(AggregationBuilders.count(AGG_VALUE_COUNT).field(field));
+        }
         if (includeCardinality) {
             dateHistogramBuilder.subAggregation(AggregationBuilders.cardinality(AGG_CARDINALITY).field(field));
         }
@@ -673,11 +793,12 @@ public class Searches {
         }
 
         if (highlight && configuration.isAllowHighlighting()) {
-            searchSourceBuilder.highlighter()
+            final HighlightBuilder highlightBuilder = new HighlightBuilder()
                 .requireFieldMatch(false)
                 .field("*")
                 .fragmentSize(0)
                 .numOfFragments(0);
+            searchSourceBuilder.highlighter(highlightBuilder);
         }
 
         return searchSourceBuilder;

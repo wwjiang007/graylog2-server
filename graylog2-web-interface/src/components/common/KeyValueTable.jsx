@@ -5,19 +5,29 @@ import { Button } from 'react-bootstrap';
 import { Input } from 'components/bootstrap';
 import ObjectUtils from 'util/ObjectUtils';
 
+// eslint-disable-next-line no-unused-vars
+import style from './KeyValueTable.css';
+
 /**
  * KeyValueTable displays a table for all key-value pairs in a JS object. If the editable prop is set to true, it also
  * provides inputs to create, edit and delete key-value pairs.
  */
 const KeyValueTable = React.createClass({
   propTypes: {
-    pairs: PropTypes.object.isRequired, // Object containing key-values to represent in the table
-    headers: PropTypes.array, // Table headers. Must be an array with three elements [ key header, value header, actions header]
-    editable: PropTypes.bool, // Indicates if the user can create, edit or delete key-value pairs
-    onChange: PropTypes.func, // Callback when key-value pairs change
-    className: PropTypes.string, // Extra CSS classes for the rendered table
-    containerClassName: PropTypes.string, // Extra CSS classes for the table container
-    actionsSize: PropTypes.oneOf(['large', 'medium', 'small', 'xsmall']), // Size of action buttons
+    /** Object containing key-values to represent in the table. */
+    pairs: PropTypes.object.isRequired,
+    /** Table headers. Must be an array with three elements [ key header, value header, actions header]. */
+    headers: PropTypes.array,
+    /** Indicates if the user can create, edit or delete key-value pairs. */
+    editable: PropTypes.bool,
+    /** Callback when key-value pairs change. It receives the new key-value pairs as argument. */
+    onChange: PropTypes.func,
+    /** Extra CSS classes for the rendered table. */
+    className: PropTypes.string,
+    /** Extra CSS classes for the table container. */
+    containerClassName: PropTypes.string,
+    /** Size of action buttons. */
+    actionsSize: PropTypes.oneOf(['large', 'medium', 'small', 'xsmall']),
   },
 
   getInitialState() {
@@ -137,7 +147,7 @@ const KeyValueTable = React.createClass({
 
   render() {
     return (
-      <div>
+      <div className="key-value-table-component">
         <div className={`table-responsive ${this.props.containerClassName}`}>
           <table className={`table table-striped ${this.props.className}`}>
             <thead>{this._formattedHeaders(this.props.headers)}</thead>

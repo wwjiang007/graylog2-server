@@ -4,7 +4,7 @@ import naturalSort from 'javascript-natural-sort';
 import { Button, Col, Row } from 'react-bootstrap';
 
 import { Input } from 'components/bootstrap';
-import { Select, Spinner } from 'components/common';
+import { ExternalLinkButton, Select, Spinner } from 'components/common';
 import { ConfigurationForm } from 'components/configurationforms';
 import Routes from 'routing/Routes';
 import UserNotification from 'util/UserNotification';
@@ -49,7 +49,7 @@ const CreateAlertNotificationInput = React.createClass({
 
     AlarmCallbacksActions.save(this.state.selectedStream.id, data).then(
       () => {
-        history.pushState(null, Routes.ALERTS.NOTIFICATIONS);
+        history.push(Routes.ALERTS.NOTIFICATIONS);
       },
       () => this.refs.configurationForm.open(),
     );
@@ -97,8 +97,22 @@ const CreateAlertNotificationInput = React.createClass({
     const formattedStreams = this.state.streams
       .map(stream => this._formatOption(stream.title, stream.id))
       .sort((s1, s2) => naturalSort(s1.label.toLowerCase(), s2.label.toLowerCase()));
+
+    const notificationTypeHelp = (
+      <span>
+        Select the notification type that will be used. You can find more types in the{' '}
+        <a href="https://marketplace.graylog.org/" target="_blank" rel="noopener noreferrer">Graylog Marketplace</a>.
+      </span>
+    );
+
     return (
       <div>
+        <ExternalLinkButton href="https://marketplace.graylog.org/"
+                            bsStyle="info"
+                            className="pull-right">
+          Find more notifications
+        </ExternalLinkButton>
+
         <h2>Notification</h2>
         <p className="description">
           Define the notification that will be triggered from the alert conditions in a stream.
@@ -107,14 +121,19 @@ const CreateAlertNotificationInput = React.createClass({
         <Row>
           <Col md={6}>
             <form>
-              <Input label="Notify on stream"
+              <Input id="stream-selector"
+                     label="Notify on stream"
                      help="Select the stream that should use this notification when its alert conditions are triggered.">
-                <Select placeholder="Select a stream" options={formattedStreams} onValueChange={this._onStreamChange} />
+                <Select placeholder="Select a stream" options={formattedStreams} onChange={this._onStreamChange} />
               </Input>
 
-              <Input type="select" value={this.state.type} onChange={this._onChange}
+              <Input id="notification-type-selector"
+                     type="select"
+                     value={this.state.type}
+                     onChange={this._onChange}
                      disabled={!this.state.selectedStream}
-                     label="Notification type" help="Select the notification type that will be used.">
+                     label="Notification type"
+                     help={notificationTypeHelp}>
                 <option value={this.PLACEHOLDER} disabled>Select a notification type</option>
                 {availableTypes}
               </Input>

@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import ReactDOM from 'react-dom';
-import { Button, DropdownButton, MenuItem } from 'react-bootstrap';
+import { Button, ButtonGroup, DropdownButton } from 'react-bootstrap';
 import PureRenderMixin from 'react-addons-pure-render-mixin';
 
 import AddToDashboardMenu from 'components/dashboard/AddToDashboardMenu';
@@ -27,12 +27,11 @@ const LegacyFieldGraph = React.createClass({
   },
   mixins: [PureRenderMixin],
   componentDidMount() {
-    const graphContainer = ReactDOM.findDOMNode(this.refs.fieldGraphContainer);
-    FieldGraphsStore.renderFieldGraph(this.props.graphOptions, graphContainer);
+    FieldGraphsStore.renderFieldGraph(this.props.graphOptions, this.fieldGraphContainer);
   },
   componentDidUpdate(prevProps) {
     if (this.props.from !== prevProps.from || this.props.to !== prevProps.to) {
-      FieldGraphsStore.updateFieldGraphData(this.props.graphId);
+      FieldGraphsStore.updateFieldGraphData(this.props.graphId, this.fieldGraphContainer);
     }
   },
 
@@ -105,8 +104,14 @@ const LegacyFieldGraph = React.createClass({
       );
     }
 
+    const menus = (
+      <DropdownButton bsSize="small" className="graph-settings" title="Customize" id="customize-field-graph-dropdown" pullRight>
+        {submenus}
+      </DropdownButton>
+    );
+
     return (
-      <div ref="fieldGraphContainer"
+      <div ref={(c) => { this.fieldGraphContainer = c; }}
            style={{ display: this.props.hidden ? 'none' : 'block' }}
            className="content-col field-graph-container"
            data-chart-id={this.props.graphId}
@@ -118,18 +123,10 @@ const LegacyFieldGraph = React.createClass({
                               dashboards={this.props.dashboards}
                               widgetType={this._getWidgetType()}
                               configuration={this._getWidgetConfiguration()}
-                              bsStyle="default"
                               pullRight
-                              permissions={this.props.permissions}>
-            <DropdownButton bsSize="small" className="graph-settings" title="Customize"
-                            id="customize-field-graph-dropdown">
-              {submenus}
-              <MenuItem divider />
-              <MenuItem onSelect={this.props.onDelete}>Dismiss</MenuItem>
-            </DropdownButton>
-          </AddToDashboardMenu>
-
-          <div style={{ display: 'inline', marginLeft: 20 }}>
+                              permissions={this.props.permissions}
+                              appendMenus={menus}>
+            {/* It needs to be an anchor to properly work as a draggable handle */}
             <Button href="#"
                     bsSize="small"
                     className="reposition-handle"
@@ -137,7 +134,9 @@ const LegacyFieldGraph = React.createClass({
                     title="Drag and drop to merge the graph into another">
               <i className="fa fa-reorder" />
             </Button>
-          </div>
+
+            <Button bsSize="small" onClick={this.props.onDelete}><i className="fa fa-close" /></Button>
+          </AddToDashboardMenu>
         </div>
         <h1>{this._getGraphTitle()}</h1>
 

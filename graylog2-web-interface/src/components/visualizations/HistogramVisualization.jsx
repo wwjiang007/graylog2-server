@@ -26,7 +26,22 @@ const HistogramVisualization = React.createClass({
     computationTimeRange: PropTypes.object,
     height: PropTypes.number,
     width: PropTypes.number,
+    interactive: PropTypes.bool,
+    onRenderComplete: PropTypes.func,
+    keyTitleRenderer: PropTypes.func,
+    valueTitleRenderer: PropTypes.func,
   },
+
+  getDefaultProps() {
+    return {
+      interactive: true,
+      onRenderComplete: () => {
+      },
+      keyTitleRenderer: d => `<span class="date">${new DateTime(d.x).toString(DateTime.Formats.COMPLETE)}</span>`,
+      valueTitleRenderer: d => `${numeral(d.y).format('0,0')} messages`,
+    };
+  },
+
   getInitialState() {
     this.triggerRender = true;
     this.histogramData = crossfilter();
@@ -38,6 +53,8 @@ const HistogramVisualization = React.createClass({
     };
   },
   componentDidMount() {
+    this.disableTransitions = dc.disableTransitions;
+    dc.disableTransitions = !this.props.interactive;
     this.renderHistogram();
     this._updateData(this.props.data);
   },
@@ -51,6 +68,11 @@ const HistogramVisualization = React.createClass({
     }
     this._updateData(nextProps.data);
   },
+
+  componentWillUnmount() {
+    dc.disableTransitions = this.disableTransitions;
+  },
+
   _updateData(data) {
     this.setState({ dataPoints: data }, this.drawData);
   },
@@ -78,8 +100,34 @@ const HistogramVisualization = React.createClass({
       this.histogram.redraw();
     }
   },
+
+  _renderTooltip(histogram, histogramDomNode) {
+    histogram.on('renderlet', () => {
+      const formatTitle = (d) => {
+        const valueText = this.props.valueTitleRenderer(d);
+        const keyText = this.props.keyTitleRenderer(d);
+
+        return `<div class="datapoint-info">${valueText}<br>${keyText}</div>`;
+      };
+
+      d3.select(histogramDomNode).selectAll('.chart-body rect.bar')
+        .attr('rel', 'tooltip')
+        .attr('data-original-title', formatTitle);
+    });
+
+    $(histogramDomNode).tooltip({
+      selector: '[rel="tooltip"]',
+      container: 'body',
+      placement: 'auto',
+      delay: { show: 300, hide: 100 },
+      html: true,
+    });
+  },
+
   renderHistogram() {
-    const histogramDomNode = ReactDOM.findDOMNode(this);
+    const histogramDomNode = this._graph;
+    const xAxisLabel = this.props.config.xAxis || 'Time';
+    const yAxisLabel = this.props.config.yAxis || 'Messages';
 
     this.histogram = dc.barChart(histogramDomNode);
     this.histogram
@@ -94,30 +142,16 @@ const HistogramVisualization = React.createClass({
       .centerBar(true)
       .renderHorizontalGridLines(true)
       .brushOn(false)
-      .xAxisLabel('Time')
-      .yAxisLabel('Messages')
+      .xAxisLabel(xAxisLabel)
+      .yAxisLabel(yAxisLabel)
       .renderTitle(false)
-      .colors(D3Utils.glColourPalette())
-      .on('renderlet', () => {
-        const formatTitle = (d) => {
-          const valueText = `${numeral(d.y).format('0,0')} messages`;
-          const keyText = `<span class="date">${new DateTime(d.x).toString(DateTime.Formats.COMPLETE)}</span>`;
+      .colors(D3Utils.glColourPalette());
 
-          return `<div class="datapoint-info">${valueText}<br>${keyText}</div>`;
-        };
+    if (this.props.interactive) {
+      this._renderTooltip(this.histogram, histogramDomNode);
+    }
 
-        d3.select(histogramDomNode).selectAll('.chart-body rect.bar')
-          .attr('rel', 'tooltip')
-          .attr('data-original-title', formatTitle);
-      });
-
-    $(histogramDomNode).tooltip({
-      selector: '[rel="tooltip"]',
-      container: 'body',
-      placement: 'auto',
-      delay: { show: 300, hide: 100 },
-      html: true,
-    });
+    this.histogram.on('postRender', this.props.onRenderComplete);
 
     this.histogram.xAxis()
       .ticks(graphHelper.customTickInterval())
@@ -131,7 +165,7 @@ const HistogramVisualization = React.createClass({
   },
   render() {
     return (
-      <div id={`visualization-${this.props.id}`} className="histogram" />
+      <div ref={(c) => { this._graph = c; }} id={`visualization-${this.props.id}`} className="histogram" />
     );
   },
 });

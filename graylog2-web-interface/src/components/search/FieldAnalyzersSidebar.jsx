@@ -14,6 +14,7 @@ const FieldAnalyzersSidebar = React.createClass({
     maximumHeight: PropTypes.number,
     predefinedFieldSelection: PropTypes.func,
     result: PropTypes.object,
+    searchConfig: PropTypes.object.isRequired,
     selectedFields: PropTypes.object,
     shouldHighlight: PropTypes.bool,
     showAllFields: PropTypes.bool,
@@ -123,6 +124,7 @@ const FieldAnalyzersSidebar = React.createClass({
                                  fieldAnalyzers={this.props.fieldAnalyzers}
                                  onToggled={this.props.onFieldToggled}
                                  onFieldAnalyzer={this.props.onFieldAnalyzer}
+                                 searchConfig={this.props.searchConfig}
                                  selected={this.props.selectedFields.contains(field.name)} />
           );
         }
@@ -132,9 +134,14 @@ const FieldAnalyzersSidebar = React.createClass({
     let shouldHighlightToggle;
     if (this.props.showHighlightToggle) {
       shouldHighlightToggle = (
-        <Input ref="highlightToggle" type="checkbox" bsSize="small" checked={this.props.shouldHighlight}
-               onChange={this.props.toggleShouldHighlight} label="Highlight results"
-               groupClassName="result-highlight-control" />
+        <Input ref="highlightToggle"
+               id="highligh-results-checkbox"
+               type="checkbox"
+               bsSize="small"
+               checked={this.props.shouldHighlight}
+               onChange={this.props.toggleShouldHighlight}
+               label="Highlight results"
+               wrapperClassName="result-highlight-control" />
       );
     }
 

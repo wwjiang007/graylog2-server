@@ -6,61 +6,144 @@ import crossfilter from 'crossfilter';
 import dc from 'dc';
 import d3 from 'd3';
 import deepEqual from 'deep-equal';
-
 import $ from 'jquery';
-global.jQuery = $;
-require('bootstrap/js/tooltip');
+import DateTime from 'logic/datetimes/DateTime';
 
 import D3Utils from 'util/D3Utils';
 import StringUtils from 'util/StringUtils';
 import NumberUtils from 'util/NumberUtils';
 
 import StoreProvider from 'injection/StoreProvider';
+
+import style from './QuickValuesVisualization.css';
+
+global.jQuery = $;
+require('bootstrap/js/tooltip');
+
 const SearchStore = StoreProvider.getStore('Search');
 
 const QuickValuesVisualization = React.createClass({
+  DEFAULT_CONFIG: {
+    show_pie_chart: true,
+    show_data_table: true,
+    data_table_limit: 50,
+    limit: 5,
+    sort_order: 'desc',
+  },
   propTypes: {
-    id: PropTypes.string,
-    config: PropTypes.object,
+    id: PropTypes.string.isRequired,
+    field: PropTypes.string.isRequired,
+    config: PropTypes.shape({
+      show_pie_chart: PropTypes.bool,
+      show_data_table: PropTypes.bool,
+      data_table_limit: PropTypes.number,
+      limit: PropTypes.number,
+      sort_order: PropTypes.oneOf(['asc', 'desc']),
+    }),
     width: PropTypes.any,
     height: PropTypes.any,
     horizontal: PropTypes.bool,
     displayAnalysisInformation: PropTypes.bool,
     displayAddToSearchButton: PropTypes.bool,
+    interactive: PropTypes.bool,
+    onRenderComplete: PropTypes.func,
+    limitHeight: PropTypes.bool,
   },
+  getDefaultProps() {
+    return {
+      config: this.DEFAULT_CONFIG,
+      width: undefined,
+      height: undefined,
+      horizontal: false,
+      displayAnalysisInformation: false,
+      displayAddToSearchButton: false,
+      interactive: true,
+      limitHeight: true,
+      onRenderComplete: () => {},
+    };
+  },
+
   getInitialState() {
     this.filters = [];
     this.triggerRender = true;
     this.shouldUpdateData = true;
     this.dcGroupName = `quickvalue-${this.props.id}`;
     this.quickValuesData = crossfilter();
-    this.dimension = this.quickValuesData.dimension(d => d.term);
-    this.group = this.dimension.group().reduceSum(d => d.count);
+    this.dimensionByTerm = this.quickValuesData.dimension(d => d.term);
+    this.dimensionByCount = this.quickValuesData.dimension(d => d.count);
+    this.group = this.dimensionByTerm.group().reduceSum(d => d.count);
 
     return {
       total: undefined,
       others: undefined,
       missing: undefined,
       terms: Immutable.List(),
+      termsMapping: {},
     };
   },
   componentDidMount() {
-    this._resizeVisualization(this.props.width, this.props.height, this.props.config.show_data_table);
+    this.disableTransitions = dc.disableTransitions;
+    dc.disableTransitions = !this.props.interactive;
+    this._resizeVisualization(this.props.width, this.props.height, this._getConfig('show_data_table'));
     this._formatProps(this.props);
-    this._renderDataTable();
-    this._renderPieChart();
+    this._renderDataTable(this.props);
+    this._renderPieChart(this.props);
   },
   componentWillReceiveProps(nextProps) {
     if (deepEqual(this.props, nextProps)) {
       return;
     }
 
-    this._resizeVisualization(nextProps.width, nextProps.height, nextProps.config.show_data_table);
+    if (!deepEqual(this.props.config, nextProps.config)) {
+      this._renderDataTable(nextProps);
+      this._renderPieChart(nextProps);
+      return;
+    }
+
+    this._resizeVisualization(nextProps.width, nextProps.height, this._getConfig('show_data_table', nextProps.config));
     this._formatProps(nextProps);
   },
-  NUMBER_OF_TOP_VALUES: 5,
+
+  componentWillUnmount() {
+    dc.disableTransitions = this.disableTransitions;
+  },
+
+  _graph: undefined,
+  _table: undefined,
   DEFAULT_PIE_CHART_SIZE: 200,
   MARGIN_TOP: 15,
+  _pieChartRendered: false,
+  _dataTableRendered: false,
+
+  _handleRender(viz) {
+    return () => {
+      if (this._dataTableRendered && this._pieChartRendered) {
+        return;
+      }
+      this._dataTableRendered = this._dataTableRendered || viz === 'dataTable';
+      this._pieChartRendered = this._pieChartRendered || viz === 'pieChart';
+
+      if (this._dataTableRendered && this._pieChartRendered) {
+        this.props.onRenderComplete();
+      }
+    };
+  },
+
+  _getConfig(key, newConfig) {
+    const config = newConfig || {};
+    const propsConfig = this.props.config || {};
+    const defaultConfig = this.DEFAULT_CONFIG;
+
+    if (Object.prototype.hasOwnProperty.call(config, key)) {
+      return config[key];
+    } else if (Object.prototype.hasOwnProperty.call(propsConfig, key)) {
+      return propsConfig[key];
+    } else if (Object.prototype.hasOwnProperty.call(defaultConfig, key)) {
+      return defaultConfig[key];
+    } else {
+      throw new Error(`Couldn't find config key "${key}" in any data source`);
+    }
+  },
 
   _formatProps(newProps) {
     if (newProps.data) {
@@ -86,6 +169,7 @@ const QuickValuesVisualization = React.createClass({
         others: quickValues.other,
         missing: quickValues.missing,
         terms: formattedTerms,
+        termsMapping: quickValues.terms_mapping,
       }, this.drawData);
     }
   },
@@ -99,61 +183,102 @@ const QuickValuesVisualization = React.createClass({
     return addToSearchButton.outerHTML;
   },
   _getDataTableColumns() {
+    function formatTimestamp(d) {
+      return new DateTime(Number(d.term)).toString(DateTime.Formats.TIMESTAMP);
+    }
+
     const columns = [
       (d) => {
         let colourBadge = '';
 
+        let formattedTerm = d.term;
+        if (this.props.data.terms_mapping && this.props.data.terms_mapping[d.term]) {
+          // Separate the terms with a character that is unusual in terms and use a different text color to make the
+          // different terms in the stacked value more visible.
+          formattedTerm = this.props.data.terms_mapping[d.term].map(t => t.value).join(' <strong style="color: #999999;">&mdash;</strong> ');
+        }
+        if (this.props.field === 'timestamp') {
+          // convert unix timestamp to proper formatted value, so that add to search button works correctly
+          formattedTerm = formatTimestamp(d);
+        }
         if (typeof this.pieChart !== 'undefined' && this.dataTable.group()(d) !== 'Others') {
           const colour = this.pieChart.colors()(d.term);
-          colourBadge = `<span class="datatable-badge" style="background-color: ${colour}"></span>`;
+          colourBadge = `<span class="datatable-badge" style="background-color: ${colour} !important;"></span>`;
         }
 
-        return `${colourBadge} ${d.term}`;
+        return `${colourBadge} ${formattedTerm}`;
       },
-      (d) => {
-        return NumberUtils.formatPercentage(d.percentage);
-      },
+      d => NumberUtils.formatPercentage(d.percentage),
       d => NumberUtils.formatNumber(d.count),
     ];
 
     if (this.props.displayAddToSearchButton) {
-      columns.push(d => this._getAddToSearchButton(d.term));
+      if (this.props.field === 'timestamp') {
+        // convert unix timestamp to proper formatted value, so that add to search button works correctly
+        columns.push(d => this._getAddToSearchButton(formatTimestamp(d)));
+      } else {
+        columns.push(d => this._getAddToSearchButton(d.term));
+      }
     }
 
     return columns;
   },
-  _renderDataTable() {
-    const tableDomNode = this.refs.table;
+  _getSortOrder(sortOrder) {
+    switch (sortOrder) {
+      case 'desc': return d3.descending;
+      case 'asc': return d3.ascending;
+      default: return d3.descending;
+    }
+  },
+  _groupOrderFunc(sortOrder) {
+    return (d) => {
+      if (sortOrder === 'asc') {
+        return d * -1;
+      } else {
+        return d;
+      }
+    };
+  },
+  _renderDataTable(props) {
+    const tableDomNode = this._table;
+    const limit = this._getConfig('limit', props.config);
+    const dataTableLimit = this._getConfig('data_table_limit', props.config);
+    const sortOrder = this._getConfig('sort_order', props.config);
 
     this.dataTable = dc.dataTable(tableDomNode, this.dcGroupName);
     this.dataTable
-      .dimension(this.dimension)
+      .dimension(this.dimensionByCount)
       .group((d) => {
-        const topValues = this.group.top(this.NUMBER_OF_TOP_VALUES);
+        const topValues = this.group.order(this._groupOrderFunc(sortOrder)).top(limit);
         const dInTopValues = topValues.some(value => d.term.localeCompare(value.key) === 0);
-        return dInTopValues ? 'Top values' : 'Others';
+        const dataTableTitle = `${sortOrder === 'desc' ? 'Top' : 'Bottom'} ${limit} values`;
+        return dInTopValues ? dataTableTitle : 'Others';
       })
-      .size(50)
-      .columns(this._getDataTableColumns())
       .sortBy(d => d.count)
-      .order(d3.descending)
-      .on('renderlet', (table) => {
+      .order(this._getSortOrder(sortOrder))
+      .size(dataTableLimit)
+      .columns(this._getDataTableColumns());
+
+    if (this.props.interactive) {
+      this.dataTable.on('renderlet', (table) => {
         table.selectAll('.dc-table-group').classed('info', true);
         table.selectAll('td.dc-table-column button').on('click', () => {
-          // noinspection Eslint
           const term = $(d3.event.target).closest('button').data('term');
-          SearchStore.addSearchTerm(this.props.id, term);
+          SearchStore.addSearchTermWithMapping(this.state.termsMapping, props.id, term);
         });
       });
+    }
+
+    this.dataTable.on('postRender', this._handleRender('dataTable'));
 
     this.dataTable.render();
   },
-  _renderPieChart() {
-    const graphDomNode = this.refs.graph;
+  _renderPieChart(props) {
+    const graphDomNode = this._graph;
 
     this.pieChart = dc.pieChart(graphDomNode, this.dcGroupName);
     this.pieChart
-      .dimension(this.dimension)
+      .dimension(this.dimensionByTerm)
       .group(this.group)
       .othersGrouper((topRows) => {
         const chart = this.pieChart;
@@ -168,22 +293,24 @@ const QuickValuesVisualization = React.createClass({
       })
       .renderLabel(false)
       .renderTitle(false)
-      .slicesCap(this.NUMBER_OF_TOP_VALUES)
+      .slicesCap(this._getConfig('limit', props.config))
       .ordering(d => d.value)
       .colors(D3Utils.glColourPalette());
 
-    this._resizeVisualization(this.props.width, this.props.height, this.props.config.show_data_table);
+    this.pieChart.on('postRender', this._handleRender('pieChart'));
+    this._resizeVisualization(props.width, props.height, this._getConfig('show_data_table', props.config));
 
-    D3Utils.tooltipRenderlet(this.pieChart, 'g.pie-slice', this._formatGraphTooltip);
+    if (this.props.interactive) {
+      D3Utils.tooltipRenderlet(this.pieChart, 'g.pie-slice', this._formatGraphTooltip);
 
-    // noinspection Eslint
-    $(graphDomNode).tooltip({
-      selector: '[rel="tooltip"]',
-      container: 'body',
-      placement: 'auto',
-      delay: { show: 300, hide: 100 },
-      html: true,
-    });
+      $(graphDomNode).tooltip({
+        selector: '[rel="tooltip"]',
+        container: 'body',
+        placement: 'auto',
+        delay: { show: 300, hide: 100 },
+        html: true,
+      });
+    }
 
     this.pieChart.render();
   },
@@ -196,14 +323,14 @@ const QuickValuesVisualization = React.createClass({
     this.pieChart
       .width(newSize)
       .height(newSize)
-      .radius(newSize / 2 - 10);
+      .radius((newSize / 2) - 10);
 
     this.triggerRender = true;
   },
   _resizeVisualization(width, height, showDataTable) {
     let computedSize;
 
-    if (this.props.config.show_pie_chart) {
+    if (this._getConfig('show_pie_chart')) {
       if (showDataTable) {
         computedSize = this.DEFAULT_PIE_CHART_SIZE;
       } else {
@@ -237,7 +364,7 @@ const QuickValuesVisualization = React.createClass({
       this.dataTable.redraw();
     }
 
-    if (this.props.config.show_pie_chart) {
+    if (this._getConfig('show_pie_chart')) {
       if (this.triggerRender) {
         this.pieChart.render();
         this.triggerRender = false;
@@ -250,11 +377,11 @@ const QuickValuesVisualization = React.createClass({
     return this.state.total - this.state.missing;
   },
   _getAnalysisInformation() {
-    const analysisInformation = [`Found <em>${NumberUtils.formatNumber(this._getTotalMessagesWithField())}</em> messages with this field`];
+    const analysisInformation = [`Found <em>${NumberUtils.formatNumber(this._getTotalMessagesWithField())}</em> messages with field <em>${this.props.field}</em>`];
 
     if (this.state.missing !== 0) {
       let missingMessage = this.state.others === 0 ? ' and' : '';
-      missingMessage += ` <em>${NumberUtils.formatNumber(this.state.missing)}</em> messages without it`;
+      missingMessage += ` <em>${NumberUtils.formatNumber(this.state.missing)}</em> messages without field <em>${this.props.field}</em>`;
       analysisInformation.push(missingMessage);
     }
     if (this.state.others !== 0) {
@@ -264,11 +391,12 @@ const QuickValuesVisualization = React.createClass({
     return <span dangerouslySetInnerHTML={{ __html: `${analysisInformation.join(',')}.` }} />;
   },
   render() {
+    const { horizontal, displayAnalysisInformation, height, id, displayAddToSearchButton, limitHeight } = this.props;
     let pieChartClassName;
     const pieChartStyle = {};
 
-    if (this.props.config.show_pie_chart) {
-      if (this.props.horizontal) {
+    if (this._getConfig('show_pie_chart')) {
+      if (horizontal) {
         pieChartClassName = 'col-md-4';
         pieChartStyle.textAlign = 'center';
       } else {
@@ -284,19 +412,19 @@ const QuickValuesVisualization = React.createClass({
      * Ensure we always render the data table when quickvalues config was created before introducing pie charts,
      * or when neither the data table or the pie chart are selected for rendering.
      */
-    if (this.props.config.show_data_table || !this.props.config.show_pie_chart) {
-      dataTableClassName = this.props.horizontal ? 'col-md-8' : 'col-md-12';
+    if (this._getConfig('show_data_table') || !this._getConfig('show_pie_chart')) {
+      dataTableClassName = horizontal ? 'col-md-8' : 'col-md-12';
     } else {
       dataTableClassName = 'hidden';
     }
 
     let pieChart;
-    if (this.props.displayAnalysisInformation) {
+    if (displayAnalysisInformation) {
       pieChart = (
         <Panel>
           <ListGroup fill>
             <ListGroupItem>
-              <div ref="graph" className="quickvalues-graph" />
+              <div ref={(c) => { this._graph = c; }} className="quickvalues-graph" />
             </ListGroupItem>
             <ListGroupItem>
               {this._getAnalysisInformation()}
@@ -305,26 +433,27 @@ const QuickValuesVisualization = React.createClass({
         </Panel>
       );
     } else {
-      pieChart = <div ref="graph" className="quickvalues-graph" />;
+      pieChart = <div ref={(c) => { this._graph = c; }} className="quickvalues-graph" />;
     }
 
     return (
-      <div id={`visualization-${this.props.id}`} className="quickvalues-visualization"
-           style={{ height: this.props.height }}>
+      <div id={`visualization-${id}`}
+           className="quickvalues-visualization"
+           style={limitHeight ? { height: height } : {}}>
         <div className="container-fluid">
           <div className="row" style={{ marginBottom: 0 }}>
-            <div className={pieChartClassName} style={pieChartStyle}>
+            <div className={`${pieChartClassName} ${style.pieChart}`} style={pieChartStyle}>
               {pieChart}
             </div>
             <div className={dataTableClassName}>
               <div className="quickvalues-table">
-                <table ref="table" className="table table-condensed table-hover">
+                <table ref={(c) => { this._table = c; }} className="table table-condensed table-hover">
                   <thead>
                     <tr>
                       <th style={{ width: '60%' }}>Value</th>
                       <th>%</th>
                       <th>Count</th>
-                      {this.props.displayAddToSearchButton &&
+                      {displayAddToSearchButton &&
                       <th style={{ width: 30 }}>&nbsp;</th>
                       }
                     </tr>

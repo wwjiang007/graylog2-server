@@ -1,9 +1,10 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import Reflux from 'reflux';
-import { Button, Col, Row } from 'react-bootstrap';
+import { Button, ButtonToolbar, Col, Row } from 'react-bootstrap';
 import { LinkContainer } from 'react-router-bootstrap';
 import Routes from 'routing/Routes';
+import history from 'util/History';
 
 import { DocumentTitle, PageHeader, Spinner } from 'components/common';
 
@@ -15,8 +16,7 @@ const { LookupTablesStore, LookupTablesActions } = CombinedProvider.get('LookupT
 
 const LUTTablesPage = React.createClass({
   propTypes: {
-    history: PropTypes.object.isRequired,
-// eslint-disable-next-line react/no-unused-prop-types
+    // eslint-disable-next-line react/no-unused-prop-types
     params: PropTypes.object.isRequired,
     route: PropTypes.object.isRequired,
   },
@@ -77,7 +77,7 @@ const LUTTablesPage = React.createClass({
   _saved() {
     // reset detail state
     this.setState({ table: undefined });
-    this.props.history.pushState(null, Routes.SYSTEM.LOOKUPTABLES.OVERVIEW);
+    history.push(Routes.SYSTEM.LOOKUPTABLES.OVERVIEW);
   },
 
   _isCreating(props) {
@@ -115,8 +115,7 @@ const LUTTablesPage = React.createClass({
                                 table={this.state.table} />);
       }
     } else if (this._isCreating(this.props)) {
-      content = (<LookupTableCreate history={this.props.history}
-                                    saved={this._saved}
+      content = (<LookupTableCreate saved={this._saved}
                                     validate={this._validateTable}
                                     validationErrors={this.state.validationErrors} />);
     } else if (!this.state || !this.state.tables) {
@@ -136,27 +135,17 @@ const LUTTablesPage = React.createClass({
             <span>Lookup tables can be used in extractors, converters and processing pipelines to translate message fields or to enrich messages.</span>
             {null}
             <span>
-              {isShowing && (
-                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.edit(this.props.params.tableName)}
-                               onlyActiveOnIndex>
-                  <Button bsStyle="success">Edit</Button>
+              <ButtonToolbar>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.OVERVIEW}>
+                  <Button bsStyle="info" className="active">Lookup Tables</Button>
                 </LinkContainer>
-              )}
-              &nbsp;
-              {(isShowing || isEditing) && (
-                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.OVERVIEW} onlyActiveOnIndex>
-                  <Button bsStyle="info">Lookup Tables</Button>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW}>
+                  <Button bsStyle="info">Caches</Button>
                 </LinkContainer>
-              )}
-              &nbsp;
-              <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.CACHES.OVERVIEW} onlyActiveOnIndex>
-                <Button bsStyle="info">Caches</Button>
-              </LinkContainer>
-              &nbsp;
-              <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW}
-                             onlyActiveOnIndex>
-                <Button bsStyle="info">Data Adapters</Button>
-              </LinkContainer>
+                <LinkContainer to={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.OVERVIEW}>
+                  <Button bsStyle="info">Data Adapters</Button>
+                </LinkContainer>
+              </ButtonToolbar>
             </span>
           </PageHeader>
 

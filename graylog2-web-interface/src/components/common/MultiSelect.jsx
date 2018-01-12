@@ -2,13 +2,18 @@ import React from 'react';
 
 import Select from 'components/common/Select';
 
+/**
+ * Component that wraps and render a `Select` where multiple options can be selected. It passes all
+ * props to the underlying `Select` component, so please look there to find more information about them.
+ */
 const MultiSelect = React.createClass({
   propTypes: Select.propTypes,
+  _select: undefined,
   getValue() {
-    return this.refs.select.getValue();
+    return this._select.getValue();
   },
   render() {
-    return <Select ref="select" multi {...this.props} />;
+    return <Select ref={(c) => { this._select = c; }} multi {...this.props} />;
   },
 });
 

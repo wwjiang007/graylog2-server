@@ -6,6 +6,7 @@ import crossfilter from 'crossfilter';
 import dc from 'dc';
 import d3 from 'd3';
 import deepEqual from 'deep-equal';
+import _ from 'lodash';
 
 import DateTime from 'logic/datetimes/DateTime';
 import HistogramFormatter from 'logic/graphs/HistogramFormatter';
@@ -20,30 +21,35 @@ global.jQuery = $;
 require('bootstrap/js/tooltip');
 
 const GraphFactory = {
-  create(config, domNode, tooltipTitleFormatter) {
+  create(config, domNode, renderTooltip, tooltipTitleFormatter) {
     let graph;
+    let tooltipSelector;
     switch (config.renderer) {
       case 'line':
         graph = dc.lineChart(domNode);
-        D3Utils.tooltipRenderlet(graph, '.chart-body circle.dot', tooltipTitleFormatter);
+        tooltipSelector = '.chart-body circle.dot';
         break;
       case 'area':
         graph = dc.lineChart(domNode);
         graph.renderArea(true);
-        D3Utils.tooltipRenderlet(graph, '.chart-body circle.dot', tooltipTitleFormatter);
+        tooltipSelector = '.chart-body circle.dot';
         break;
       case 'bar':
         graph = dc.barChart(domNode);
         graph.centerBar(true);
-        D3Utils.tooltipRenderlet(graph, '.chart-body rect.bar', tooltipTitleFormatter);
+        tooltipSelector = '.chart-body rect.bar';
         break;
       case 'scatterplot':
         graph = dc.lineChart(domNode);
         graph.renderDataPoints({ radius: 2, fillOpacity: 1, strokeOpacity: 1 });
-        D3Utils.tooltipRenderlet(graph, '.chart-body circle.dot', tooltipTitleFormatter);
+        tooltipSelector = '.chart-body circle.dot';
         break;
       default:
         throw new Error(`Unsupported renderer '${config.renderer}'`);
+    }
+
+    if (renderTooltip && tooltipSelector) {
+      D3Utils.tooltipRenderlet(graph, tooltipSelector, tooltipTitleFormatter);
     }
 
     if (config.renderer === 'line' || config.renderer === 'area') {
@@ -64,10 +70,16 @@ const GraphVisualization = React.createClass({
     id: PropTypes.string.isRequired,
     data: PropTypes.object.isRequired,
     config: PropTypes.object.isRequired,
-    computationTimeRange: PropTypes.object,
+    computationTimeRange: PropTypes.shape({
+      from: PropTypes.string.isRequired,
+      to: PropTypes.string.isRequired,
+    }).isRequired,
     height: PropTypes.number,
     width: PropTypes.number,
+    interactive: PropTypes.bool,
+    onRenderComplete: PropTypes.func,
   },
+
   statics: {
     getReadableFieldChartStatisticalFunction(statisticalFunction) {
       switch (statisticalFunction) {
@@ -80,6 +92,14 @@ const GraphVisualization = React.createClass({
       }
     },
   },
+
+  getDefaultProps() {
+    return {
+      interactive: true,
+      onRenderComplete: () => {},
+    };
+  },
+
   getInitialState() {
     this.triggerRender = true;
     this.graphData = crossfilter();
@@ -91,8 +111,13 @@ const GraphVisualization = React.createClass({
     };
   },
   componentDidMount() {
+    this.disableTransitions = dc.disableTransitions;
+    dc.disableTransitions = !this.props.interactive;
     this.renderGraph();
-    this._updateData(this.props.data, this.props.config);
+    this._updateData(this.props.data, this.props.config, this.props.computationTimeRange);
+  },
+  componentDidUpdate() {
+    this.drawData();
   },
   componentWillReceiveProps(nextProps) {
     if (deepEqual(this.props, nextProps)) {
@@ -102,14 +127,19 @@ const GraphVisualization = React.createClass({
     if (nextProps.height !== this.props.height || nextProps.width !== this.props.width) {
       this._resizeVisualization(nextProps.width, nextProps.height);
     }
-    this._updateData(nextProps.data, nextProps.config);
+    this._updateData(nextProps.data, nextProps.config, nextProps.computationTimeRange);
   },
-  _updateData(data, config) {
+
+  componentWillUnmount() {
+    dc.disableTransitions = this.disableTransitions;
+  },
+
+  _updateData(data, config, computationTimeRange) {
     const isSearchAll = (config.timerange.type === 'relative' && config.timerange.range === 0);
-    const dataPoints = HistogramFormatter.format(data, this.props.computationTimeRange,
+    const dataPoints = HistogramFormatter.format(data, computationTimeRange,
       config.interval, this.props.width, isSearchAll, config.valuetype);
 
-    this.setState({ dataPoints: this._normalizeData(dataPoints) }, this.drawData);
+    this.setState({ dataPoints: this._normalizeData(dataPoints) });
   },
   _normalizeData(data) {
     if (data === null || data === undefined || !Array.isArray(data)) {
@@ -154,11 +184,93 @@ const GraphVisualization = React.createClass({
     } else {
       this.graph.redraw();
     }
+    if (this.props.config.threshold) {
+      this.renderThreshold();
+    }
+  },
+  // Draws a horizontal threshold line in the graph
+  renderThreshold() {
+    const threshold = this.props.config.threshold;
+    const thresholdColor = this.props.config.threshold_color || '#f00';
+    const thresholdTooltip = this.props.config.threshold_tooltip || `threshold: ${threshold}`;
+    const thresholdDotHidden = 1e-6;
+    const thresholdDotVisible = 0.8;
+    const thresholdDotRadius = 4;
+
+    this.graph.on('renderlet.threshold', (chart) => {
+      const lineData = [
+        {
+          x: chart.x().range()[0],
+          y: chart.y()(threshold),
+        },
+        {
+          x: chart.x().range()[1],
+          y: chart.y()(threshold),
+        },
+      ];
+
+      const line = d3.svg.line()
+        .x(d => d.x)
+        .y(d => d.y)
+        .interpolate('linear');
+
+      const chartBody = chart.select('g.chart-body');
+      const paths = chartBody.selectAll('path.threshold').data([lineData]);
+      paths // Modify the existing path
+        .attr('stroke', thresholdColor)
+        .attr('d', line);
+      paths.enter() // This will only do something if there isn't a path yet
+        .append('path')
+        .attr('class', 'threshold')
+        .attr('stroke', thresholdColor)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', ('2', '2'))
+        .attr('d', line);
+      paths.exit().remove(); // Remove any outdated paths
+
+      // Collect all x-axis values
+      const xValues = chart.data().reduce((list, value) => {
+        value.values.forEach(v => list.push(v.x));
+        return list;
+      }, []);
+
+      // Put circles on the threshold line to make it easier to show the tooltip
+      const dots = chartBody.selectAll('circle.threshold').data(xValues);
+      dots.enter()
+        .append('circle')
+        .attr('class', 'threshold')
+        .attr('r', thresholdDotRadius)
+        .attr('rel', 'tooltip') // To make the tooltip helper pick it up
+        .attr('data-original-title', () => {
+          return `<div class="datapoint-info">${_.escape(thresholdTooltip)}</div>`;
+        })
+        .style('stroke-opacity', thresholdDotHidden)
+        .style('fill-opacity', thresholdDotHidden)
+        .on('mousemove', function show() {
+          d3.select(this)
+            .style('stroke-opacity', thresholdDotVisible)
+            .style('fill-opacity', thresholdDotVisible);
+        })
+        .on('mouseout', function hide() {
+          d3.select(this)
+            .style('stroke-opacity', thresholdDotHidden)
+            .style('fill-opacity', thresholdDotHidden);
+        });
+      dots
+        .attr('cx', d => dc.utils.safeNumber(chart.x()(d)))
+        .attr('cy', () => dc.utils.safeNumber(chart.y()(threshold)))
+        .attr('data-original-title', () => {
+          return `<div class="datapoint-info">${thresholdTooltip}</div>`;
+        })
+        .attr('fill', thresholdColor);
+      dots.exit().remove();
+    });
   },
   renderGraph() {
-    const graphDomNode = ReactDOM.findDOMNode(this);
+    const graphDomNode = this._graph;
+    const interactive = this.props.interactive;
 
-    this.graph = GraphFactory.create(this.props.config, graphDomNode, this._formatTooltipTitle);
+    this.graph = GraphFactory.create(this.props.config, graphDomNode, interactive, this._formatTooltipTitle);
     this.graph
       .width(this.props.width)
       .height(this.props.height)
@@ -175,13 +287,17 @@ const GraphVisualization = React.createClass({
       .renderTitle(false)
       .colors(D3Utils.glColourPalette());
 
-    $(graphDomNode).tooltip({
-      selector: '[rel="tooltip"]',
-      container: 'body',
-      placement: 'auto',
-      delay: { show: 300, hide: 100 },
-      html: true,
-    });
+    this.graph.on('postRender', this.props.onRenderComplete);
+
+    if (interactive) {
+      $(graphDomNode).tooltip({
+        selector: '[rel="tooltip"]',
+        container: 'body',
+        placement: 'auto',
+        delay: { show: 300, hide: 100 },
+        html: true,
+      });
+    }
 
     this.graph.xAxis()
       .ticks(graphHelper.customTickInterval())
@@ -195,7 +311,8 @@ const GraphVisualization = React.createClass({
   },
   render() {
     return (
-      <div id={`visualization-${this.props.id}`} className={`graph ${this.props.config.renderer}`} />
+      <div ref={(c) => { this._graph = c; }} id={`visualization-${this.props.id}`}
+           className={`graph ${this.props.config.renderer}`} />
     );
   },
 });

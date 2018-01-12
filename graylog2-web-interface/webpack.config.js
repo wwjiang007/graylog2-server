@@ -3,6 +3,7 @@ const webpack = require('webpack');
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const merge = require('webpack-merge');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 
 const ROOT_PATH = path.resolve(__dirname);
 const APP_PATH = path.resolve(ROOT_PATH, 'src');
@@ -15,11 +16,12 @@ process.env.BABEL_ENV = TARGET;
 const BABELRC = path.resolve(ROOT_PATH, '.babelrc');
 const BABELOPTIONS = {
   cacheDirectory: 'cache',
-  'extends': BABELRC,
+  extends: BABELRC,
 };
 
 const BABELLOADER = { loader: 'babel-loader', options: BABELOPTIONS };
 
+// eslint-disable-next-line import/no-dynamic-require
 const BOOTSTRAPVARS = require(path.resolve(ROOT_PATH, 'public', 'stylesheets', 'bootstrap-config.json')).vars;
 
 const webpackConfig = {
@@ -40,16 +42,19 @@ const webpackConfig = {
       { test: /\.ts$/, use: [BABELLOADER, { loader: 'ts-loader' }], exclude: /node_modules|\.node_cache/ },
       { test: /\.(woff(2)?|svg|eot|ttf|gif|jpg)(\?.+)?$/, use: 'file-loader' },
       { test: /\.png$/, use: 'url-loader' },
-      { test: /bootstrap\.less$/, use: [
-        'style-loader',
-        'css-loader',
-        {
-          loader: 'less-loader',
-          options: {
-            modifyVars: BOOTSTRAPVARS,
+      {
+        test: /bootstrap\.less$/,
+        use: [
+          'style-loader',
+          'css-loader',
+          {
+            loader: 'less-loader',
+            options: {
+              modifyVars: BOOTSTRAPVARS,
+            },
           },
-        },
-      ] },
+        ],
+      },
       { test: /\.less$/, use: ['style-loader', 'css-loader', 'less-loader'], exclude: /bootstrap\.less$/ },
       { test: /\.css$/, use: ['style-loader', 'css-loader'] },
     ],
@@ -92,54 +97,20 @@ const webpackConfig = {
 };
 
 if (TARGET === 'start') {
-  console.error('Running in development mode');
-  module.exports = merge(webpackConfig, {
-    entry: {
-      reacthot: 'react-hot-loader/patch',
-    },
-    devtool: 'eval',
-    devServer: {
-      historyApiFallback: true,
-      hot: true,
-      inline: true,
-      lazy: false,
-      watchOptions: {
-        ignored: /node_modules/,
-      },
-    },
-    output: {
-      path: BUILD_PATH,
-      filename: '[name].js',
-      publicPath: '/',
-      hotUpdateChunkFilename: '[id].hot-update.js',
-      hotUpdateMainFilename: 'hot-update.json',
-    },
-    plugins: [
-      new webpack.NamedModulesPlugin(),
-      new webpack.DefinePlugin({DEVELOPMENT: true}),
-    ],
-  });
-}
-
-if (TARGET === 'start-nohmr') {
   console.error('Running in development (no HMR) mode');
   module.exports = merge(webpackConfig, {
     devtool: 'eval',
-    devServer: {
-      historyApiFallback: true,
-      hot: false,
-      inline: true,
-      watchOptions: {
-        ignored: /node_modules/,
-      },
-    },
     output: {
       path: BUILD_PATH,
       filename: '[name].js',
       publicPath: '/',
     },
     plugins: [
-      new webpack.DefinePlugin({DEVELOPMENT: true}),
+      new webpack.DefinePlugin({
+        DEVELOPMENT: true,
+      }),
+      new CopyWebpackPlugin([{ from: 'config.js' }]),
+      new webpack.HotModuleReplacementPlugin(),
     ],
   });
 }
@@ -174,7 +145,7 @@ if (TARGET === 'test') {
   module.exports = merge(webpackConfig, {
     module: {
       rules: [
-        { test: /\.js(x)?$/, enforce: 'pre', loader: 'eslint-loader', exclude: /node_modules|public\/javascripts/ }
+        { test: /\.js(x)?$/, enforce: 'pre', loader: 'eslint-loader', exclude: /node_modules|public\/javascripts/ },
       ],
     },
   });

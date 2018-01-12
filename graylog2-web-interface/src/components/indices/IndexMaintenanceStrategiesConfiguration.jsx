@@ -110,12 +110,12 @@ const IndexMaintenanceStrategiesConfiguration = React.createClass({
       <span>
         <h3>{this.props.title}</h3>
         <p className="description">{this.props.description}</p>
-        <Input label={this.props.selectPlaceholder}>
+        <Input id="strategy-select" label={this.props.selectPlaceholder}>
           <Select placeholder={this.props.selectPlaceholder}
                   options={this._availableSelectOptions()}
                   matchProp="value"
                   value={this._activeSelection()}
-                  onValueChange={this._onSelect} />
+                  onChange={this._onSelect} />
         </Input>
         {this._getConfigurationComponent(this._activeSelection())}
       </span>
