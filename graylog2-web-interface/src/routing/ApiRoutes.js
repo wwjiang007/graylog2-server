@@ -319,6 +319,9 @@ const ApiRoutes = {
     load: (username) => { return { url: `/users/${username}` }; },
     delete: (username) => { return { url: `/users/${username}` }; },
     update: (username) => { return { url: `/users/${username}` }; },
+    create_token: (username, tokenName) => { return { url: `/users/${username}/tokens/${tokenName}` }; },
+    delete_token: (username, tokenName) => { return { url: `/users/${username}/tokens/${tokenName}` }; },
+    list_tokens: (username) => { return { url: `/users/${username}/tokens` }; },
   },
   DashboardsController: {
     show: (id) => { return { url: `/dashboards/${id}` }; },
@@ -333,6 +336,35 @@ const ApiRoutes = {
     analyze: (index, string) => { return { url: `/messages/${index}/analyze?string=${string}` }; },
     parse: () => { return { url: '/messages/parse' }; },
     single: (index, messageId) => { return { url: `/messages/${index}/${messageId}` }; },
+  },
+  MapDataController: {
+    search: () => { return { url: '/search/mapdata' }; },
+  },
+  PipelinesController: {
+    list: () => { return { url: '/system/pipelines/pipeline' }; },
+    create: () => { return { url: '/system/pipelines/pipeline' }; },
+    get: (pipelineId) => { return { url: `/system/pipelines/pipeline/${pipelineId}` }; },
+    update: (pipelineId) => { return { url: `/system/pipelines/pipeline/${pipelineId}` }; },
+    delete: (pipelineId) => { return { url: `/system/pipelines/pipeline/${pipelineId}` }; },
+    parse: () => { return { url: '/system/pipelines/pipeline/parse' }; },
+  },
+  RulesController: {
+    list: () => { return { url: '/system/pipelines/rule' }; },
+    create: () => { return { url: '/system/pipelines/rule' }; },
+    get: (ruleId) => { return { url: `/system/pipelines/rule/${ruleId}` }; },
+    update: (ruleId) => { return { url: `/system/pipelines/rule/${ruleId}` }; },
+    delete: (ruleId) => { return { url: `/system/pipelines/rule/${ruleId}` }; },
+    multiple: () => { return { url: '/system/pipelines/rule/multiple' }; },
+    functions: () => { return { url: '/system/pipelines/rule/functions' }; },
+    parse: () => { return { url: '/system/pipelines/rule/parse' }; },
+  },
+  ConnectionsController: {
+    list: () => { return { url: '/system/pipelines/connections' }; },
+    to_stream: () => { return { url: '/system/pipelines/connections/to_stream' }; },
+    to_pipeline: () => { return { url: '/system/pipelines/connections/to_pipeline' }; },
+  },
+  SimulatorController: {
+    simulate: () => { return { url: '/system/pipelines/simulate' }; },
   },
   ping: () => { return { url: '/' }; },
 };

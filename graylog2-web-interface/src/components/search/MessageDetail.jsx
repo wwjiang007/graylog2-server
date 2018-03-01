@@ -3,6 +3,7 @@ import React from 'react';
 import { ButtonGroup, Button, Row, Col, DropdownButton, MenuItem, Label } from 'react-bootstrap';
 import Immutable from 'immutable';
 import { LinkContainer } from 'react-router-bootstrap';
+import { Link } from 'react-router';
 
 import StoreProvider from 'injection/StoreProvider';
 const StreamsStore = StoreProvider.getStore('Streams');
@@ -23,7 +24,7 @@ const MessageDetail = React.createClass({
     expandAllRenderAsync: PropTypes.bool,
     showTimestamp: PropTypes.bool,
     disableFieldActions: PropTypes.bool,
-    possiblyHighlight: PropTypes.func,
+    renderForDisplay: PropTypes.func,
     inputs: PropTypes.object,
     nodes: PropTypes.object,
     message: PropTypes.object,
@@ -222,9 +223,9 @@ const MessageDetail = React.createClass({
     let messageTitle;
     if (this.props.message.index) {
       messageTitle = (
-        <LinkContainer to={Routes.message_show(this.props.message.index, this.props.message.id)}>
-          <a href="#">{this.props.message.id}</a>
-        </LinkContainer>
+        <Link to={Routes.message_show(this.props.message.index, this.props.message.id)}>
+          {this.props.message.id}
+        </Link>
       );
     } else {
       messageTitle = <span>{this.props.message.id} <Label bsStyle="warning">Not stored</Label></span>;
@@ -263,7 +264,7 @@ const MessageDetail = React.createClass({
         <Col md={9}>
           <div ref="messageList">
             <MessageFields message={this.props.message}
-                           possiblyHighlight={this.props.possiblyHighlight}
+                           renderForDisplay={this.props.renderForDisplay}
                            disableFieldActions={this.props.disableFieldActions}
                            customFieldActions={this.props.customFieldActions}
                            showDecoration={this.state.showOriginal}

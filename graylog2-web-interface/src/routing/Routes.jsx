@@ -93,6 +93,9 @@ const Routes = {
       USERS: {
         CREATE: '/system/authentication/users/new',
         edit: username => `/system/authentication/users/edit/${username}`,
+        TOKENS: {
+          edit: username => `/system/authentication/users/tokens/${username}`,
+        },
         LIST: '/system/authentication/users',
       },
       PROVIDERS: {
@@ -118,6 +121,14 @@ const Routes = {
         edit: adapterName => `/system/lookuptables/data_adapter/${adapterName}/edit`,
       },
     },
+    PIPELINES: {
+      OVERVIEW: '/system/pipelines',
+      PIPELINE: pipelineId => `/system/pipelines/${pipelineId}`,
+      RULES: '/system/pipelines/rules',
+      RULE: ruleId => `/system/pipelines/rules/${ruleId}`,
+      SIMULATOR: '/system/pipelines/simulate',
+    },
+    ENTERPRISE: '/system/enterprise',
   },
   search_with_query: (query, rangeType, timeRange) => {
     const route = new URI(Routes.SEARCH);

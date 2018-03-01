@@ -22,7 +22,8 @@
       "src/**/*.{js,jsx,ts,tsx}"
     ],
     "setupFiles": [
-      "jest-localstorage-mock"
+      "jest-localstorage-mock",
+      "./test/setup-jest.jsx"
     ],
     "setupTestFrameworkScriptFile": "./node_modules/jest-enzyme/lib/index.js",
     "moduleDirectories": [
@@ -36,7 +37,8 @@
       "ts"
     ],
     "moduleNameMapper": {
-      "\\.(css|less)$": "identity-obj-proxy"
+      "\\.(css|less)$": "identity-obj-proxy",
+      "c3": "<rootDir>/test/helpers/mocking/c3_mock.jsx"
     },
     "transform": {
       "^.+\\.jsx?$": "<rootDir>/node_modules/babel-jest",
@@ -58,6 +60,7 @@
     "immutable": "^3.7.5",
     "javascript-natural-sort": "^0.7.1",
     "jquery-ui": "1.12.x",
+    "leaflet": "^1.2.0",
     "lodash": "^4.17.4",
     "markdown": "^0.5.0",
     "md5": "^2.0.0",
@@ -70,6 +73,8 @@
     "react-dnd": "^2.0.2",
     "react-dnd-html5-backend": "^2.0.0",
     "react-grid-layout": "^0.14.3",
+    "react-isolated-scroll": "^0.1.1",
+    "react-leaflet": "^1.6.0",
     "react-overlays": "^0.6.5",
     "react-resizable": "^1.7.5",
     "react-select": "^v1.0.0-rc.10",
@@ -119,6 +124,7 @@
     "less": "^2.5.3",
     "less-loader": "^4.0.5",
     "phantomjs-prebuilt": ">=1.9",
+    "react-immutable-proptypes": "^2.1.0",
     "react-proxy-loader": "^0.3.4",
     "react-styleguidist": "^6.0.33",
     "react-test-renderer": "^15.6.1",
@@ -136,7 +142,7 @@
     "yargs": "^10.0.3"
   },
   "resolutions": {
-    "@types/jquery": "2.0.48",
-    "jquery": "2.1.4"
+    "@types/jquery": "3.3.0",
+    "jquery": "3.3.1"
   }
 }

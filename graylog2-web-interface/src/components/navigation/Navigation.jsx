@@ -84,6 +84,12 @@ const Navigation = React.createClass({
     if (this._isActive('/system/configurations')) {
       return `${prefix} / Configurations`;
     }
+    if (this._isActive('/system/pipelines')) {
+      return `${prefix} / Pipelines`;
+    }
+    if (this._isActive('/system/enterprise')) {
+      return `${prefix} / Enterprise`;
+    }
 
     const pluginRoute = PluginStore.exports('systemnavigation').filter(route => this._isActive(route.path))[0];
     if (pluginRoute) {
@@ -233,6 +239,14 @@ const Navigation = React.createClass({
                 <MenuItem>Lookup Tables</MenuItem>
               </LinkContainer>
               }
+              {this.isPermitted(this.props.permissions, ['inputs:create']) &&
+              <LinkContainer to={Routes.SYSTEM.PIPELINES.OVERVIEW}>
+                <MenuItem>Pipelines</MenuItem>
+              </LinkContainer>
+              }
+              <LinkContainer to={Routes.SYSTEM.ENTERPRISE}>
+                  <MenuItem>Enterprise</MenuItem>
+              </LinkContainer>
               {pluginSystemNavigations}
             </NavDropdown>
           </Nav>

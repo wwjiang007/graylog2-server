@@ -1,32 +1,36 @@
 import PropTypes from 'prop-types';
 import React from 'react';
 import Immutable from 'immutable';
+import ImmutablePropTypes from 'react-immutable-proptypes';
+import { Popover, OverlayTrigger } from 'react-bootstrap';
 
 import MessageDetail from './MessageDetail';
 import { Timestamp } from 'components/common';
 import StringUtils from 'util/StringUtils';
+import DateTime from 'logic/datetimes/DateTime';
+import style from './MessageTableEntry.css';
 
 const MessageTableEntry = React.createClass({
   propTypes: {
-    allStreams: PropTypes.instanceOf(Immutable.List).isRequired,
+    allStreams: ImmutablePropTypes.list.isRequired,
     allStreamsLoaded: PropTypes.bool.isRequired,
     disableSurroundingSearch: PropTypes.bool,
     expandAllRenderAsync: PropTypes.bool.isRequired,
     expanded: PropTypes.bool.isRequired,
     highlight: PropTypes.bool,
     highlightMessage: PropTypes.string,
-    inputs: PropTypes.instanceOf(Immutable.Map).isRequired,
+    inputs: ImmutablePropTypes.map.isRequired,
     message: PropTypes.shape({
       fields: PropTypes.object.isRequired,
       highlight_ranges: PropTypes.object,
       id: PropTypes.string.isRequired,
       index: PropTypes.string.isRequired,
     }).isRequired,
-    nodes: PropTypes.instanceOf(Immutable.Map).isRequired,
+    nodes: ImmutablePropTypes.map.isRequired,
     searchConfig: PropTypes.object,
-    selectedFields: PropTypes.instanceOf(Immutable.OrderedSet),
+    selectedFields: ImmutablePropTypes.orderedSet,
     showMessageRow: PropTypes.bool,
-    streams: PropTypes.instanceOf(Immutable.Map).isRequired,
+    streams: ImmutablePropTypes.map.isRequired,
     toggleDetail: PropTypes.func.isRequired,
   },
   getDefaultProps() {
@@ -61,11 +65,24 @@ const MessageTableEntry = React.createClass({
     }
     return false;
   },
-  possiblyHighlight(fieldName, truncate) {
+
+  renderForDisplay(fieldName, truncate) {
     const fullOrigValue = this.props.message.fields[fieldName];
+
     if (fullOrigValue === undefined) {
       return '';
     }
+
+    /* Timestamp can not be highlighted by elastic search. So we can safely
+     * skip them from highlighting. */
+    if (fieldName === 'timestamp') {
+      return this._toTimestamp(fullOrigValue);
+    } else {
+      return this.possiblyHighlight(fieldName, fullOrigValue, truncate);
+    }
+  },
+
+  possiblyHighlight(fieldName, fullOrigValue, truncate) {
     // Ensure the field is a string for later processing
     const fullStringOrigValue = StringUtils.stringify(fullOrigValue);
 
@@ -102,6 +119,24 @@ const MessageTableEntry = React.createClass({
   _toggleDetail() {
     this.props.toggleDetail(`${this.props.message.index}-${this.props.message.id}`);
   },
+
+  _toTimestamp(value) {
+    const popoverHoverFocus = (
+      <Popover id="popover-trigger-hover-focus">
+        This timestamp is rendered in your timezone.
+      </Popover>
+    );
+
+    return (
+      <span>
+        <Timestamp dateTime={value} format={DateTime.Formats.TIMESTAMP_TZ} />
+        <OverlayTrigger trigger={['hover']} overlay={popoverHoverFocus} >
+          <i className={`fa fa-fw fa-info ${style.timezoneInfo}`} />
+        </OverlayTrigger>
+      </span>
+    );
+  },
+
   render() {
     const colSpanFixup = this.props.selectedFields.size + 1;
 
@@ -112,19 +147,20 @@ const MessageTableEntry = React.createClass({
     if (this.props.message.id === this.props.highlightMessage) {
       classes += ' message-highlight';
     }
+
     return (
       <tbody className={classes}>
         <tr className="fields-row" onClick={this._toggleDetail}>
           <td><strong>
             <Timestamp dateTime={this.props.message.fields.timestamp} />
           </strong></td>
-          { this.props.selectedFields.toSeq().map(selectedFieldName => <td
-          key={selectedFieldName}>{this.possiblyHighlight(selectedFieldName, true)}</td>) }
+          { this.props.selectedFields.toSeq().map(selectedFieldName => (<td
+            key={selectedFieldName}>{this.renderForDisplay(selectedFieldName, true)} </td>)) }
         </tr>
 
         {this.props.showMessageRow &&
         <tr className="message-row" onClick={this._toggleDetail}>
-          <td colSpan={colSpanFixup}><div className="message-wrapper">{this.possiblyHighlight('message', true)}</div></td>
+          <td colSpan={colSpanFixup}><div className="message-wrapper">{this.renderForDisplay('message', true)}</div></td>
         </tr>
         }
         {this.props.expanded &&
@@ -136,10 +172,10 @@ const MessageTableEntry = React.createClass({
                            allStreams={this.props.allStreams}
                            allStreamsLoaded={this.props.allStreamsLoaded}
                            nodes={this.props.nodes}
-                           possiblyHighlight={this.possiblyHighlight}
+                           renderForDisplay={this.renderForDisplay}
                            disableSurroundingSearch={this.props.disableSurroundingSearch}
                            expandAllRenderAsync={this.props.expandAllRenderAsync}
-                           searchConfig={this.props.searchConfig}/>
+                           searchConfig={this.props.searchConfig} />
           </td>
         </tr>
         }

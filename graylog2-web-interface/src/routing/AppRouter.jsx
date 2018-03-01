@@ -42,6 +42,7 @@ import ExportContentPackPage from 'pages/ExportContentPackPage';
 import UsersPage from 'pages/UsersPage';
 import CreateUsersPage from 'pages/CreateUsersPage';
 import EditUsersPage from 'pages/EditUsersPage';
+import EditTokensPage from 'pages/EditTokensPage';
 import GrokPatternsPage from 'pages/GrokPatternsPage';
 import SystemOverviewPage from 'pages/SystemOverviewPage';
 import IndexerFailuresPage from 'pages/IndexerFailuresPage';
@@ -61,6 +62,12 @@ import IndexSetCreationPage from 'pages/IndexSetCreationPage';
 import LUTTablesPage from 'pages/LUTTablesPage';
 import LUTCachesPage from 'pages/LUTCachesPage';
 import LUTDataAdaptersPage from 'pages/LUTDataAdaptersPage';
+import PipelinesOverviewPage from 'pages/PipelinesOverviewPage';
+import PipelineDetailsPage from 'pages/PipelineDetailsPage';
+import SimulatorPage from 'pages/SimulatorPage';
+import RulesPage from 'pages/RulesPage';
+import RuleDetailsPage from 'pages/RuleDetailsPage';
+import EnterprisePage from 'pages/EnterprisePage';
 
 const AppRouter = React.createClass({
   render() {
@@ -126,6 +133,12 @@ const AppRouter = React.createClass({
               <Route path={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.show(':adapterName')} component={LUTDataAdaptersPage} action="show" />
               <Route path={Routes.SYSTEM.LOOKUPTABLES.DATA_ADAPTERS.edit(':adapterName')} component={LUTDataAdaptersPage} action="edit" />
 
+              <Route path={Routes.SYSTEM.PIPELINES.OVERVIEW} component={PipelinesOverviewPage} />
+              <Route path={Routes.SYSTEM.PIPELINES.RULES} component={RulesPage} />
+              <Route path={Routes.SYSTEM.PIPELINES.RULE(':ruleId')} component={RuleDetailsPage} />
+              <Route path={Routes.SYSTEM.PIPELINES.SIMULATOR} component={SimulatorPage} />
+              <Route path={Routes.SYSTEM.PIPELINES.PIPELINE(':pipelineId')} component={PipelineDetailsPage} />
+
               <Route path={Routes.SYSTEM.LOGGING} component={LoggersPage} />
               <Route path={Routes.SYSTEM.METRICS(':nodeId')} component={ShowMetricsPage} />
               <Route path={Routes.SYSTEM.NODES.LIST} component={NodesPage} />
@@ -136,12 +149,14 @@ const AppRouter = React.createClass({
                 <Route path={Routes.SYSTEM.AUTHENTICATION.USERS.LIST} component={UsersPage} />
                 <Route path={Routes.SYSTEM.AUTHENTICATION.USERS.CREATE} component={CreateUsersPage} />
                 <Route path={Routes.SYSTEM.AUTHENTICATION.USERS.edit(':username')} component={EditUsersPage} />
+                <Route path={Routes.SYSTEM.AUTHENTICATION.USERS.TOKENS.edit(':username')} component={EditTokensPage} />
                 <Route path={Routes.SYSTEM.AUTHENTICATION.ROLES} component={RolesPage} />
                 <Route path={Routes.SYSTEM.AUTHENTICATION.PROVIDERS.CONFIG} />
                 <Route path={Routes.SYSTEM.AUTHENTICATION.PROVIDERS.provider(':name')} />
               </Route>
               <Route path={Routes.SYSTEM.OVERVIEW} component={SystemOverviewPage} />
               <Route path={Routes.SYSTEM.THREADDUMP(':nodeId')} component={ThreadDumpPage} />
+              <Route path={Routes.SYSTEM.ENTERPRISE} component={EnterprisePage} />
               {pluginRoutes}
             </Route>
           </Route>
