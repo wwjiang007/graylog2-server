@@ -24,6 +24,7 @@ import org.graylog.plugins.views.search.elasticsearch.QueryStringDecorators;
 import org.graylog.plugins.views.search.errors.SearchException;
 import org.graylog.plugins.views.search.errors.UnboundParameterError;
 import org.graylog.plugins.views.search.rest.MappedFieldTypeDTO;
+import org.graylog2.indexer.fieldtypes.FieldTypes;
 import org.graylog2.indexer.fieldtypes.MappedFieldTypesService;
 
 import javax.inject.Inject;
@@ -32,8 +33,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Singleton
@@ -60,18 +65,23 @@ public class QueryValidationServiceImpl implements QueryValidationService {
             return ValidationResponse.ok();
         }
 
+        String decorated;
         try {
             // but we want to trigger the decorators as well, because they may trigger additional exceptions
-            decoratedQuery(req);
+            decorated = decoratedQuery(req);
         } catch (SearchException searchException) {
             return ValidationResponse.error(toExplanation(req.query().queryString(), searchException));
         }
 
         try {
             final ParsedQuery parsedQuery = luceneQueryParser.parse(rawQuery);
-            final List<ParsedTerm> unknownFields = getUnknownFields(req, parsedQuery);
+            Set<MappedFieldTypeDTO> availableFields = mappedFieldTypesService.fieldTypesByStreamIds(req.streams(), req.timerange());
+
+            final List<ParsedTerm> unknownFields = getUnknownFields(parsedQuery, availableFields);
             final List<ParsedTerm> invalidOperators = parsedQuery.invalidOperators();
             final List<ValidationMessage> explanations = getExplanations(unknownFields, invalidOperators);
+
+            explanations.addAll(validateQueryValues(rawQuery, decorated, availableFields));
 
             return explanations.isEmpty()
                     ? ValidationResponse.ok()
@@ -79,6 +89,45 @@ public class QueryValidationServiceImpl implements QueryValidationService {
 
         } catch (ParseException e) {
             return ValidationResponse.error(toExplanation(rawQuery, e));
+        }
+    }
+
+    private List<ValidationMessage> validateQueryValues(String rawQuery, String decorated, Set<MappedFieldTypeDTO> availableFields) {
+        try {
+            final ParsedQuery parsedQuery = luceneQueryParser.parse(decorated);
+            final Map<String, MappedFieldTypeDTO> fields = availableFields.stream().collect(Collectors.toMap(MappedFieldTypeDTO::name, Function.identity()));
+            return parsedQuery.terms().stream().map(term -> validateValue(term, fields)).filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
+        } catch (ParseException e) {
+            // TODO! Handle exception!
+        }
+
+        return Collections.emptyList();
+    }
+
+    private Optional<ValidationMessage> validateValue(ParsedTerm t, Map<String, MappedFieldTypeDTO> fields) {
+        final MappedFieldTypeDTO fieldType = fields.get(t.getRealFieldName());
+        if (!typeMatching(fieldType, t.value())) {
+            return Optional.of(ValidationMessage.builder()
+                    .errorType("Invalid data type")
+                    .errorMessage(String.format(Locale.ROOT, "Type of %s is %s, cannot use value %s", t.getRealFieldName(), fieldType.type().type(), t.value()))
+                    .build());
+        }
+        return Optional.empty();
+    }
+
+    private boolean typeMatching(MappedFieldTypeDTO type, String value) {
+        return Optional.ofNullable(type)
+                .map(MappedFieldTypeDTO::type)
+                .map(FieldTypes.Type::validationFunction)
+                .map(validator -> validateValue(validator, value))
+                .orElse(true);
+    }
+
+    private Boolean validateValue(Predicate<String> validator, String value) {
+        try {
+            return validator.test(value);
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -143,15 +192,15 @@ public class QueryValidationServiceImpl implements QueryValidationService {
         return messages;
     }
 
-    private List<ParsedTerm> getUnknownFields(ValidationRequest req, ParsedQuery query) {
-        final Set<String> availableFields = mappedFieldTypesService.fieldTypesByStreamIds(req.streams(), req.timerange())
+    private List<ParsedTerm> getUnknownFields(ParsedQuery query, Set<MappedFieldTypeDTO> availableFields) {
+        final Set<String> availableFieldsNames = availableFields
                 .stream()
                 .map(MappedFieldTypeDTO::name)
                 .collect(Collectors.toSet());
 
         return query.terms().stream()
                 .filter(t -> !t.isDefaultField())
-                .filter(term -> !availableFields.contains(term.getRealFieldName()))
+                .filter(term -> !availableFieldsNames.contains(term.getRealFieldName()))
                 .collect(Collectors.toList());
     }
 

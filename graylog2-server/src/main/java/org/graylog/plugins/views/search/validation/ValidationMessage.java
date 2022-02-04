@@ -110,8 +110,6 @@ public abstract class ValidationMessage {
 
         public abstract Builder errorMessage(String errorMessage);
 
-        public abstract Optional<String> errorMessage();
-
         public abstract ValidationMessage build();
 
     }

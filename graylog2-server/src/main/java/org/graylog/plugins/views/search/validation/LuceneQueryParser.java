@@ -25,6 +25,7 @@ import org.apache.lucene.search.AutomatonQuery;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.QueryVisitor;
+import org.apache.lucene.search.TermRangeQuery;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -72,6 +73,8 @@ public class LuceneQueryParser {
                                     termBuilder.tokensBuilder().add(token);
                                     availableTokens.remove(token);
                                 });
+
+
                     }
                     builder.termsBuilder().add(termBuilder.build());
                 }
@@ -79,7 +82,11 @@ public class LuceneQueryParser {
 
             @Override
             public void visitLeaf(Query query) {
-                if (query instanceof AutomatonQuery) {
+                if (query instanceof TermRangeQuery) { // add lower and upper term as independent values, good enough for validation
+                    final TermRangeQuery trq = (TermRangeQuery) query;
+                    builder.termsBuilder().add(ParsedTerm.create(trq.getField(), trq.getLowerTerm().utf8ToString()));
+                    builder.termsBuilder().add(ParsedTerm.create(trq.getField(), trq.getUpperTerm().utf8ToString()));
+                } else if (query instanceof AutomatonQuery) {
                     final String field = ((AutomatonQuery) query).getField();
                     builder.termsBuilder().add(ParsedTerm.create(ParsedTerm.EXISTS, field));
                 }
