@@ -1946,10 +1946,10 @@
     source-map "^0.6.1"
     write-file-atomic "^3.0.0"
 
-"@jest/types@27.5.0":
-  version "27.5.0"
-  resolved "https://registry.yarnpkg.com/@jest/types/-/types-27.5.0.tgz#6ad04a5c5355fd9f46e5cf761850e0edb3c209dd"
-  integrity sha512-oDHEp7gwSgA82RZ6pzUL3ugM2njP/lVB1MsxRZNOBk+CoNvh9SpH1lQixPFc/kDlV50v59csiW4HLixWmhmgPQ==
+"@jest/types@27.5.1":
+  version "27.5.1"
+  resolved "https://registry.yarnpkg.com/@jest/types/-/types-27.5.1.tgz#3c79ec4a8ba61c170bf937bcf9e98a9df175ec80"
+  integrity sha512-Cx46iJ9QpwQTjIdq5VJu2QTMMs3QlEjI0x1QbBP5W1+nMzyc2XmimiRR/CbX9TO0cPTeUlxWMOu8mslYsJ8DEw==
   dependencies:
     "@types/istanbul-lib-coverage" "^2.0.0"
     "@types/istanbul-reports" "^3.0.0"
@@ -2185,6 +2185,11 @@
     "@react-hook/passive-layout-effect" "^1.2.0"
     "@types/raf-schd" "^4.0.0"
     raf-schd "^4.0.2"
+
+"@react-leaflet/core@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@react-leaflet/core/-/core-1.1.1.tgz#827fd05bb542cf874116176d8ef48d5b12163f81"
+  integrity sha512-7PGLWa9MZ5x/cWy8EH2VzI4T8q5WpuHbixzCDXqixP/WyqwIrg5NDUPgYuFnB4IEIZF+6nA265mYzswFo/h1Pw==
 
 "@sinonjs/commons@^1.7.0":
   version "1.7.1"
@@ -9420,7 +9425,7 @@ jest-pnp-resolver@^1.2.2:
 "jest-preset-graylog@file:packages/jest-preset-graylog":
   version "1.0.0"
   dependencies:
-    "@jest/types" "27.5.0"
+    "@jest/types" "27.5.1"
     "@testing-library/dom" "8.11.3"
     "@testing-library/jest-dom" "5.16.2"
     "@testing-library/react" "12.1.2"
@@ -12504,15 +12509,12 @@ react-isolated-scroll@^0.1.1:
     isolated-scroll "^0.1.0"
     prop-types "^15.5.8"
 
-react-leaflet@^2.3.0:
-  version "2.6.1"
-  resolved "https://registry.yarnpkg.com/react-leaflet/-/react-leaflet-2.6.1.tgz#e5d6514d2358c51a28e614b8a0ddf8dca56e7179"
-  integrity sha512-pqXQegdX4EL4R+zL33J92aLUcznp5TksNdW6CerwEwmi5m6CHt5k2YTkvyPVroZPA7pLAPB3ZAjmLLEmZh7yLw==
+react-leaflet@^3.2.5:
+  version "3.2.5"
+  resolved "https://registry.yarnpkg.com/react-leaflet/-/react-leaflet-3.2.5.tgz#bec0bfab9dd8c2b030ea630f7a0687a60322ca7d"
+  integrity sha512-Z3KZ+4SijsRbbrt2I1a3ZDY6+V6Pm91eYTdxTN18G6IOkFRsJo1BuSPLFnyFrlF3WDjQFPEcTPkEgD1VEeAoBg==
   dependencies:
-    "@babel/runtime" "^7.7.6"
-    fast-deep-equal "^3.1.1"
-    hoist-non-react-statics "^3.3.1"
-    warning "^4.0.3"
+    "@react-leaflet/core" "^1.1.1"
 
 react-lifecycles-compat@^3.0.4:
   version "3.0.4"
@@ -15521,7 +15523,7 @@ warning@^3.0.0:
   dependencies:
     loose-envify "^1.0.0"
 
-warning@^4.0.0, warning@^4.0.3:
+warning@^4.0.0:
   version "4.0.3"
   resolved "https://registry.yarnpkg.com/warning/-/warning-4.0.3.tgz#16e9e077eb8a86d6af7d64aa1e05fd85b4678ca3"
   integrity sha512-rpJyN222KWIvHJ/F53XSZv0Zl/accqHR8et1kpaMTD/fLCRxtV8iX8czMzY7sVZupTI3zcUTg8eycS2kNF9l6w==
