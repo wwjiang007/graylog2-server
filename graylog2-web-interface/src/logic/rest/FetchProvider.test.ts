@@ -48,25 +48,25 @@ const setUpServer = () => {
 
   app.use(formidableMiddleware());
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  app.use((err, req, res, next) => console.error(err));
+  app.use((err, _req, _res, _next) => console.error(err));
 
-  app.get('/test1', (req, res) => {
+  app.get('/test1', (_req, res) => {
     res.send({ text: 'test' });
   });
 
-  app.post('/test2', (req, res) => {
+  app.post('/test2', (_req, res) => {
     res.send({ text: 'test' });
   });
 
-  app.post('/test3', (req, res) => {
+  app.post('/test3', (_req, res) => {
     res.send('"uuid-beef-feed"');
   });
 
-  app.post('/test4', (req, res) => {
+  app.post('/test4', (_req, res) => {
     res.send(undefined);
   });
 
-  app.delete('/test5', (req, res) => {
+  app.delete('/test5', (_req, res) => {
     res.status(204).end();
   });
 
@@ -78,7 +78,7 @@ const setUpServer = () => {
     }
   });
 
-  app.get('/simulatesSessionExpiration', (req, res) => {
+  app.get('/simulatesSessionExpiration', (_req, res) => {
     res.status(401).end();
   });
 
@@ -94,7 +94,7 @@ const setUpServer = () => {
     res.send(req.fields).end();
   });
 
-  app.post('/errorWithMessage', (req, res) => res.status(500).send({ message: 'The dungeon collapses. You die!' }));
+  app.post('/errorWithMessage', (_req, res) => res.status(500).send({ message: 'The dungeon collapses. You die!' }));
 
   return app.listen(PORT, () => {});
 };
@@ -123,7 +123,7 @@ describe('FetchProvider', () => {
     ['POST with text', 'POST', 'test3', 'uuid-beef-feed'],
     ['POST without content', 'POST', 'test4', null],
     ['DELETE without content and status 204', 'DELETE', 'test5', null],
-  ])('should receive a %s', async (text, method, url, expectedResponse) => {
+  ])('should receive a %s', async (_text, method, url, expectedResponse) => {
     return fetch(method, `${baseUrl}/${url}`).then((response) => {
       expect(response).toStrictEqual(expectedResponse);
     });

@@ -23,8 +23,8 @@ import { makeVisualization, retrieveChartData } from 'views/components/aggregati
 import HeatmapVisualizationConfig from 'views/logic/aggregationbuilder/visualizations/HeatmapVisualizationConfig';
 
 import type { ChartDefinition, ExtractedSeries, ValuesBySeries } from '../ChartData';
-import GenericPlot from '../GenericPlot';
 import { chartData } from '../ChartData';
+import GenericPlot from '../GenericPlot';
 
 const _generateSeriesTitles = (config, x, y) => {
   const seriesTitles = config.series.map((s) => s.function);
@@ -39,7 +39,7 @@ const _generateSeriesTitles = (config, x, y) => {
   return y.map(() => columnSeriesTitles);
 };
 
-const _heatmapGenerateSeries = (type, name, x, y, z, idx, total, config, visualizationConfig): ChartDefinition => {
+const _heatmapGenerateSeries = (type, name, x, y, z, idx, _total, config, visualizationConfig): ChartDefinition => {
   const xAxisTitle = get(config, ['rowPivots', idx, 'field']);
   const yAxisTitle = get(config, ['columnPivots', idx, 'field']);
   const zSeriesTitles = _generateSeriesTitles(config, y, x);
@@ -80,7 +80,10 @@ const _transposeMatrix = (z: Array<Array<any>> = []) => {
 
 const _findSmallestValue = (valuesFound: Array<Array<number>>) => valuesFound.reduce((result, valueArray) => valueArray.reduce((acc, value) => (acc > value ? value : acc), result), (valuesFound[0] || [])[0]);
 
-const _formatSeries = (visualizationConfig) => ({ valuesBySeries, xLabels }: {valuesBySeries: ValuesBySeries, xLabels: Array<any>}): ExtractedSeries => {
+const _formatSeries = (visualizationConfig) => ({
+  valuesBySeries,
+  xLabels,
+}: { valuesBySeries: ValuesBySeries, xLabels: Array<any> }): ExtractedSeries => {
   const valuesFoundBySeries = values(valuesBySeries);
   // When using the hovertemplate, we need to provie a value for empty z values.
   // Otherwise plotly would throw errors when hovering over a field.

@@ -21,7 +21,10 @@ import {
   relativeDifference,
   formatAsBrowserTime,
   adjustFormat,
-  DATE_TIME_FORMATS, getBrowserTimezone, parseFromIsoString, toDateObject,
+  DATE_TIME_FORMATS,
+  getBrowserTimezone,
+  parseFromIsoString,
+  toDateObject,
 } from 'util/DateTime';
 
 const mockRootTimeZone = 'America/Chicago';
@@ -54,7 +57,7 @@ describe('DateTime utils', () => {
   const expectErrorForInvalidDate = (action: () => any) => expect(action).toThrowError(`Date time ${invalidDate} is not valid.`);
 
   describe('toDateObject', () => {
-    it.each(exampleUTCInput)('should transform %s to moment object', (type: any, input) => {
+    it.each(exampleUTCInput)('should transform %s to moment object', (_type: any, input) => {
       const result = toDateObject(input);
 
       expect(moment.isMoment(result)).toBe(true);
@@ -107,7 +110,7 @@ describe('DateTime utils', () => {
   });
 
   describe('adjustFormat', () => {
-    it.each(exampleUTCInput)('should adjust time for %s', (type: any, input) => {
+    it.each(exampleUTCInput)('should adjust time for %s', (_type: any, input) => {
       expect(adjustFormat(input, 'internal')).toBe('2020-01-01T10:00:00.000+00:00');
     });
 
@@ -125,7 +128,7 @@ describe('DateTime utils', () => {
   });
 
   describe('formatAsBrowserTime', () => {
-    it.each(exampleUTCInput)('should return browser time for $type', (type: any, input) => {
+    it.each(exampleUTCInput)('should return browser time for $type', (_type: any, input) => {
       expect(formatAsBrowserTime(input)).toBe('2020-01-01 04:00:00');
     });
 
@@ -139,7 +142,7 @@ describe('DateTime utils', () => {
   });
 
   describe('relativeDifference', () => {
-    it.each(exampleUTCInput)('should return relative time for $type', (type: any, input) => {
+    it.each(exampleUTCInput)('should return relative time for $type', (_type: any, input) => {
       expect(relativeDifference(input)).toBe('in 10 hours');
     });
 

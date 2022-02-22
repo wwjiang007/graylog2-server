@@ -143,7 +143,7 @@ const ViewAdditionalContextProvider = ({ children }: { children: React.ReactNode
 
 ViewAdditionalContextProvider.displayName = 'ViewAdditionalContextProvider';
 
-const useRefreshSearchOn = (actions: Array<RefluxActions<any>>, refresh: () => Promise<any>) => {
+const useRefreshSearchOn = (_actions: Array<RefluxActions<any>>, refresh: () => Promise<any>) => {
   useEffect(() => {
     let storeListenersUnsubscribes = Immutable.List<() => void>();
 
@@ -179,7 +179,12 @@ const Search = () => {
       <SynchronizeUrl />
       <WidgetFocusProvider>
         <WidgetFocusContext.Consumer>
-          {({ focusedWidget: { focusing: focusingWidget, editing: editingWidget } = { focusing: false, editing: false } }) => (
+          {({
+            focusedWidget: { focusing: focusingWidget, editing: editingWidget } = {
+              focusing: false,
+              editing: false,
+            },
+          }) => (
             <CurrentViewTypeProvider>
               <IfInteractive>
                 <IfDashboard>
@@ -202,7 +207,8 @@ const Search = () => {
                               <IfInteractive>
                                 <HeaderElements />
                                 <IfDashboard>
-                                  {!editingWidget && <DashboardSearchBarWithStatus onExecute={refreshIfNotUndeclared} />}
+                                  {!editingWidget
+                                  && <DashboardSearchBarWithStatus onExecute={refreshIfNotUndeclared} />}
                                 </IfDashboard>
                                 <IfSearch>
                                   <SearchBarWithStatus onExecute={refreshIfNotUndeclared} />

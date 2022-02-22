@@ -46,7 +46,7 @@ const _horizontalDimensions = (idx, total) => {
   return [(sliceSize * position) + spacer, (sliceSize * (position + 1)) - spacer];
 };
 
-const _generateSeries = (type, name, x, y, z, idx, total) => ({
+const _generateSeries = (type, name, x, y, _z, idx, total) => ({
   type,
   name,
   hole: 0.4,
@@ -77,7 +77,7 @@ const setChartColor = (chart, colorMap) => {
   return { marker: { colors } };
 };
 
-const labelMapper = (data: Array<{ labels: Array<string>}>) => data.reduce((acc, { labels }) => {
+const labelMapper = (data: Array<{ labels: Array<string> }>) => data.reduce((acc, { labels }) => {
   return union(acc, labels);
 }, []);
 
