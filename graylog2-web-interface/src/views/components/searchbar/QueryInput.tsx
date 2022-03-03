@@ -15,7 +15,7 @@
  * <http://www.mongodb.com/licensing/server-side-public-license>.
  */
 import * as React from 'react';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 import type { DefaultTheme } from 'styled-components';
 import { withTheme } from 'styled-components';
 import PropTypes from 'prop-types';
@@ -80,16 +80,23 @@ const handleExecution = (editor: Editor, onExecute: (query: string) => void, val
 
 // This function takes care of all editor configuration options, which do not rely on external data.
 // It will only run once, on mount, which is important for e.g. the event listeners.
-const _onLoadEditor = (editor) => {
+const _onLoadEditor = (editor, isInitialTokenizerUpdate: React.MutableRefObject<boolean>) => {
   if (editor) {
     editor.commands.removeCommands(['find', 'indent', 'outdent']);
 
     editor.session.on('tokenizerUpdate', (input, { bgTokenizer: { currentLine, lines } }) => {
-      editor.completers.forEach((completer) => {
-        if (completer?.shouldShowCompletions(currentLine, lines)) {
-          editor.execCommand('startAutocomplete');
-        }
-      });
+      if (!isInitialTokenizerUpdate.current) {
+        editor.completers.forEach((completer) => {
+          if (completer?.shouldShowCompletions(currentLine, lines)) {
+            editor.execCommand('startAutocomplete');
+          }
+        });
+      }
+
+      if (isInitialTokenizerUpdate.current) {
+        // eslint-disable-next-line no-param-reassign
+        isInitialTokenizerUpdate.current = false;
+      }
     });
 
     editor.renderer.setScrollMargin(6, 5);
@@ -156,6 +163,7 @@ const QueryInput = ({
 }: Props) => {
   const { data: queryFields } = useFieldTypes(streams, isNoTimeRangeOverride(timeRange) ? DEFAULT_TIMERANGE : timeRange);
   const { data: allFields } = useFieldTypes([], DEFAULT_TIMERANGE);
+  const isInitialTokenizerUpdate = useRef(true);
   const fieldTypes = useMemo(() => {
     const queryFieldsByName = Object.fromEntries((queryFields ?? []).map((field) => [field.name, field]));
     const allFieldsByName = Object.fromEntries((allFields ?? []).map((field) => [field.name, field]));
@@ -163,7 +171,7 @@ const QueryInput = ({
     return { all: allFieldsByName, query: queryFieldsByName };
   }, [allFields, queryFields]);
   const completer = useMemo(() => completerFactory(completers, timeRange, streams, fieldTypes), [completerFactory, completers, timeRange, streams, fieldTypes]);
-  const onLoadEditor = useCallback((editor: Editor) => _onLoadEditor(editor), []);
+  const onLoadEditor = useCallback((editor: Editor) => _onLoadEditor(editor, isInitialTokenizerUpdate), []);
   const onExecute = useCallback((editor: Editor) => handleExecution(editor, onExecuteProp, value, error, disableExecution), [onExecuteProp, value, error, disableExecution]);
   const markers = useMemo(() => getMarkers(error, warning), [error, warning]);
   const updateEditorConfiguration = useCallback((node) => _updateEditorConfiguration(node, completer, onExecute), [onExecute, completer]);
