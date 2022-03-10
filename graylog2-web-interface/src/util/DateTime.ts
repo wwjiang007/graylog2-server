@@ -42,7 +42,8 @@ const validateDateTime = (dateTime: Moment, originalDateTime: DateTime, addition
       errorMessage = `${errorMessage} ${additionalInfo}`;
     }
 
-    throw new Error(errorMessage);
+    // eslint-disable-next-line no-console
+    console.error(errorMessage);
   }
 
   return dateTime;
@@ -89,3 +90,5 @@ export const relativeDifference = (dateTime: DateTime) => {
 
   return validateDateTime(dateObject, dateTime).fromNow();
 };
+
+export const isValidDate = (dateTime: DateTime) => moment(dateTime, Object.values(DATE_TIME_FORMATS), true).isValid();

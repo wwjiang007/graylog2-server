@@ -21,9 +21,9 @@ import { AggregationType, AggregationResult } from 'views/components/aggregation
 import type { VisualizationComponentProps } from 'views/components/aggregationbuilder/AggregationBuilder';
 import { makeVisualization, retrieveChartData } from 'views/components/aggregationbuilder/AggregationBuilder';
 import HeatmapVisualizationConfig from 'views/logic/aggregationbuilder/visualizations/HeatmapVisualizationConfig';
+import useChartData from 'views/components/visualizations/useChartData';
 
 import type { ChartDefinition, ExtractedSeries, ValuesBySeries } from '../ChartData';
-import { chartData } from '../ChartData';
 import GenericPlot from '../GenericPlot';
 
 const _generateSeriesTitles = (config, x, y) => {
@@ -73,9 +73,15 @@ const _fillUpMatrix = (z: Array<Array<any>>, xLabels: Array<any>, defaultValue =
 };
 
 const _transposeMatrix = (z: Array<Array<any>> = []) => {
-  if (!z[0]) { return z; }
+  if (!z[0]) {
+    return z;
+  }
 
-  return z[0].map((_, c) => { return z.map((r) => { return r[c]; }); });
+  return z[0].map((_, c) => {
+    return z.map((r) => {
+      return r[c];
+    });
+  });
 };
 
 const _findSmallestValue = (valuesFound: Array<Array<number>>) => valuesFound.reduce((result, valueArray) => valueArray.reduce((acc, value) => (acc > value ? value : acc), result), (valuesFound[0] || [])[0]);
@@ -134,7 +140,13 @@ const _leafSourceMatcher = ({ source }) => source.endsWith('leaf') && source !==
 const HeatmapVisualization = makeVisualization(({ config, data }: VisualizationComponentProps) => {
   const visualizationConfig = (config.visualizationConfig || HeatmapVisualizationConfig.empty()) as HeatmapVisualizationConfig;
   const rows = retrieveChartData(data);
-  const heatmapData = chartData(config, rows, 'heatmap', _generateSeries(visualizationConfig), _formatSeries(visualizationConfig), _leafSourceMatcher);
+  const heatmapData = useChartData(rows, {
+    widgetConfig: config,
+    chartType: 'heatmap',
+    generator: _generateSeries(visualizationConfig),
+    seriesFormatter: _formatSeries(visualizationConfig),
+    leafValueMatcher: _leafSourceMatcher,
+  });
   const layout = _chartLayout(heatmapData);
 
   return (
